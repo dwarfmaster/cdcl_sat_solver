@@ -38,12 +38,10 @@ static void free_elem(struct _elem* e, void (*freeer)(void*)) {
     }
 }
 
-void list_free(list_t** l) {
+void list_free(list_t* l) {
     ASSERT(l != NULL);
-    ASSERT(*l != NULL);
-    free_elem((*l)->first, (*l)->freeer);
-    free(*l);
-    *l = NULL;
+    free_elem(l->first, l->freeer);
+    free(l);
 }
 
 static void inc(struct _elem* e) {
