@@ -5,7 +5,6 @@
 #include <stdlib.h>
 
 struct _elem {
-    uint32_t count; /* Reference counter */
     void* data;
     struct _elem* next;
 };
@@ -14,6 +13,7 @@ struct _list {
     struct _elem* first;
     uint32_t size;
     void (*freeer)(void*);
+    bool freeel; /* Should the elems be free'd */
 };
 
 list_t* list_create(void (*freeer)(void*)) {
@@ -23,31 +23,25 @@ list_t* list_create(void (*freeer)(void*)) {
     l->first  = NULL;
     l->freeer = freeer;
     l->size   = 0;
+    l->freeel = true;
     return l;
 }
 
 static void free_elem(struct _elem* e, void (*freeer)(void*)) {
     if(e == NULL) return;
-    e->count--;
     free_elem(e->next, freeer);
-    if(!e->count) {
-        if(freeer != NULL) {
-            freeer(e->data);
-        }
-        free(e);
+    if(freeer != NULL) {
+        freeer(e->data);
     }
+    free(e);
 }
 
 void list_free(list_t* l) {
     ASSERT(l != NULL);
-    free_elem(l->first, l->freeer);
+    if(l->freeel) {
+        free_elem(l->first, l->freeer);
+    }
     free(l);
-}
-
-static void inc(struct _elem* e) {
-    if(e == NULL) return;
-    e->count++;
-    inc(e->next);
 }
 
 list_t* list_tail(list_t* l) {
@@ -59,7 +53,7 @@ list_t* list_tail(list_t* l) {
     tl->size   = l->size - 1;
     tl->freeer = l->freeer;
     tl->first  = l->first->next;
-    inc(tl->first);
+    tl->freeel = false;
     return tl;
 }
 
@@ -79,7 +73,6 @@ void list_add(list_t* l, void* elem) {
     struct _elem* el = malloc(sizeof(struct _elem));
     el->next  = l->first;
     el->data  = elem;
-    el->count = 1;
     l->first  = el;
     l->size++;
 }
@@ -90,13 +83,10 @@ void list_rm(list_t* l) {
     struct _elem* e = l->first;
     l->first = e->next;
     l->size--;
-    e->count--;
-    if(!e->count) {
-        if(l->freeer != NULL) {
-            l->freeer(e->data);
-        }
-        free(e);
+    if(l->freeer != NULL) {
+        l->freeer(e->data);
     }
+    free(e);
 }
 
 uint32_t list_size(list_t* l) {

@@ -9,8 +9,11 @@ typedef struct _list list_t;
 list_t* list_create(void (*freeer)(void*));
 /* If freeer was not NULL, will free the data */
 void list_free(list_t* l);
-/* Will the next elements of the tail without copying them. They can be free'd,
- * as a pointer count will be kept. */
+/* Will the next elements of the tail without copying them. The list created
+ * this way must be free'd with list_free. It cannot be used after a
+ * destructuve method has been used on the original list, like list_free of
+ * list_rm.
+ */
 list_t* list_tail(list_t* l);
 void* list_head(list_t* l);
 bool list_empty(list_t* l);
