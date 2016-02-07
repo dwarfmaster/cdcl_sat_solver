@@ -13,7 +13,6 @@ struct _list {
     struct _elem* first;
     uint32_t size;
     void (*freeer)(void*);
-    bool freeel; /* Should the elems be free'd */
 };
 
 list_t* list_create(void (*freeer)(void*)) {
@@ -23,7 +22,6 @@ list_t* list_create(void (*freeer)(void*)) {
     l->first  = NULL;
     l->freeer = freeer;
     l->size   = 0;
-    l->freeel = true;
     return l;
 }
 
@@ -38,23 +36,8 @@ static void free_elem(struct _elem* e, void (*freeer)(void*)) {
 
 void list_free(list_t* l) {
     ASSERT(l != NULL);
-    if(l->freeel) {
-        free_elem(l->first, l->freeer);
-    }
+    free_elem(l->first, l->freeer);
     free(l);
-}
-
-list_t* list_tail(list_t* l) {
-    ASSERT(l != NULL);
-    ASSERT(l->first != NULL);
-    struct _list* tl = malloc(sizeof(struct _list));
-    ASSERT(tl != NULL);
-
-    tl->size   = l->size - 1;
-    tl->freeer = l->freeer;
-    tl->first  = l->first->next;
-    tl->freeel = false;
-    return tl;
 }
 
 void* list_head(list_t* l) {
@@ -94,3 +77,26 @@ uint32_t list_size(list_t* l) {
     return l->size;
 }
 
+list_iterator_t list_begin(list_t* l) {
+    ASSERT(l != NULL);
+    return l->first;
+}
+
+list_iterator_t list_next(list_iterator_t it) {
+    if(it == NULL)
+        return NULL;
+    else
+        return ((struct _elem*)it)->next;
+}
+
+void* list_it_data(list_iterator_t it) {
+    if(it == NULL)
+        return NULL;
+    else
+        return ((struct _elem*)it)->data;
+}
+
+list_iterator_t list_end(list_t* l) {
+    if(l) { } /* Avoid warnings */
+    return NULL;
+}
