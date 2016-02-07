@@ -11,10 +11,11 @@ typedef struct _var {
     uint32_t id;
     bool value;
 } var_t;
-typedef struct _couple_var {
+typedef struct _implication {
     var_t v1;
     var_t v2;
-} couple_var_t;
+    var_t bond;
+} implication_t;
 
 /* Create clauses */
 clause_t* cnf_clause1(var_t v1);
@@ -34,8 +35,7 @@ void cnf_add_clause(cnf_t* cnf, clause_t* clause);
 void cnf_unset(cnf_t* cnf);
 /* Suppose a var set to a value */
 void cnf_set_var(cnf_t* cnf, var_t var);
-/* Return couples of implications from already bond variables (0 mean no
- * variable */
+/* Return implications (if v1 or v2 id is 0, it means there is no variable) */
 list_t* cnf_implications(cnf_t* cnf);
 /* Save status of assumptions */
 void cnf_push_assum(cnf_t* cnf, uint32_t id);

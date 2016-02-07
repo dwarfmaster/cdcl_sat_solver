@@ -132,8 +132,64 @@ void cnf_set_var(cnf_t* cnf, var_t var) {
     cnf->assum[var.id] = var.value;
 }
 
+static implication_t* create_implication(var_t v1, var_t v2, var_t imp) {
+    implication_t* i = malloc(sizeof(implication_t));
+    ASSERT(i != NULL);
+    i->v1   = v1;
+    i->v2   = v2;
+    i->bond = imp;
+    return i;
+}
+
+static void handle_c2(list_t* imp, cnf_t* cnf, var_t v1, var_t v2) {
+    if(cnf->assum[v1.id] != unset && cnf->assum[v1.id] != v1.value) {
+        list_add(imp, create_implication(
+                    (var_t){.id = v1.id, .value = !v1.value},
+                    (var_t){.id = 0},
+                    v2));
+    }
+}
+
+static void handle_c3(list_t* imp, cnf_t* cnf, var_t v1, var_t v2, var_t v3) {
+    if(cnf->assum[v1.id] != unset && cnf->assum[v1.id] != v1.value) {
+        handle_c2(imp, cnf, v2, v3);
+        handle_c2(imp, cnf, v3, v2);
+    }
+}
+
 list_t* cnf_implications(cnf_t* cnf) {
     ASSERT(cnf != NULL);
+    list_iterator_t it;
+    list_t* imp = list_create(free);
+    ASSERT(imp != NULL);
+
+    for(it = list_begin(cnf->clauses);
+            it != list_end(cnf->clauses);
+            it = list_next(it)) {
+        struct _clause* cl = list_it_data(it);
+        switch(cl->type) {
+            case 1:
+                if(cnf->assum[cl->c.c1.v1.id] == unset) {
+                    list_add(imp, create_implication((var_t){.id = 0},
+                                                     (var_t){.id = 0},
+                                                     cl->c.c1.v1));
+                }
+                break;
+            case 2:
+                handle_c2(imp, cnf, cl->c.c2.v1, cl->c.c2.v2);
+                handle_c2(imp, cnf, cl->c.c2.v2, cl->c.c2.v1);
+                break;
+            case 3:
+                handle_c3(imp, cnf, cl->c.c3.v1, cl->c.c3.v2, cl->c.c3.v3);
+                handle_c3(imp, cnf, cl->c.c3.v2, cl->c.c3.v3, cl->c.c3.v1);
+                handle_c3(imp, cnf, cl->c.c3.v3, cl->c.c3.v1, cl->c.c3.v2);
+                break;
+            default:
+                ASSERT(false);
+        }
+    }
+
+    return imp;
 }
 
 void cnf_push_assum(cnf_t* cnf, uint32_t id) {
