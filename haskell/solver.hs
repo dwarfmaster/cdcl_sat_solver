@@ -1,7 +1,11 @@
 -- vim:set foldmethod=marker:
 
-import Data.Set
+import Data.Set (Set,(\\))
+import qualified Data.Set as S
 import Data.Maybe
+import qualified Data.List.Split as Spl
+import System.IO
+import qualified Debug.Trace as Tr
 
 -- {{{ Utils
 type Literal = Int
@@ -9,6 +13,7 @@ data Clause = C0 Bool
             | C1 Literal
             | C2 Literal Literal
             | C3 Literal Literal Literal
+ deriving (Show)
 type CNF = [Clause] -- Empty means true
 
 -- The first set is the one assumed to be true
@@ -17,38 +22,39 @@ type Assum = (Set Literal, Set Literal)
 
 type Decider = Set Literal -> (Literal,Bool)
 
-isEmptySet :: Set a -> Bool
-isEmptySet s = size s == 0
+(*:) :: Maybe a -> [a] -> [a]
+(*:) Nothing  l = l
+(*:) (Just v) l = v:l
 
 -- }}}
 
 -- {{{ Propagation
 -- {{{ Clauses
 boundValue :: Literal -> Assum -> Maybe Bool
-boundValue l (tr,fl) = if l < 0 then if      member (-l) tr then Just False
-                                     else if member (-l) fl then Just True
-                                     else                        Nothing
-                       else          if      member l tr then Just True
-                                     else if member l fl then Just False
-                                     else                     Nothing
+boundValue l (tr,fl) = if l < 0 then if      S.member (-l) tr then Just False
+                                     else if S.member (-l) fl then Just True
+                                     else                          Nothing
+                       else          if      S.member l tr then Just True
+                                     else if S.member l fl then Just False
+                                     else                       Nothing
 
 bound :: Literal -> Bool -> Assum
-bound l b = if l < 0 then if b then (empty, singleton (-l))
-                               else (singleton (-l), empty)
-            else          if b then (singleton l, empty)
-                               else (empty, singleton l)
+bound l b = if l < 0 then if b then (S.empty, S.singleton (-l))
+                               else (S.singleton (-l), S.empty)
+            else          if b then (S.singleton l, S.empty)
+                               else (S.empty, S.singleton l)
 
 reduceClause :: Clause -> Assum -> Assum
-reduceClause (C0 b) _ = (empty,empty)
-reduceClause (C1 l) _ = if l < 0 then (empty, singleton (-l))
-                                 else (singleton l, empty)
+reduceClause (C0 b) _ = (S.empty,S.empty)
+reduceClause (C1 l) _ = if l < 0 then (S.empty, S.singleton (-l))
+                                 else (S.singleton l, S.empty)
 reduceClause (C2 l1 l2) as = if isJust v1 then
                                 if not b1 then bound l2 True
-                                          else (empty,empty)
+                                          else (S.empty,S.empty)
                              else if isJust v2 then
                                 if not b2 then bound l1 True
-                                          else (empty,empty)
-                             else (empty,empty)
+                                          else (S.empty,S.empty)
+                             else (S.empty,S.empty)
  where v1 = boundValue l1 as
        v2 = boundValue l2 as
        Just b1 = v1 -- Using laziness, will be accessed only if v1 is just
@@ -56,14 +62,14 @@ reduceClause (C2 l1 l2) as = if isJust v1 then
 reduceClause (C3 l1 l2 l3) as =
     if isJust v1 && isJust v2 then
         if not b1 && not b2 then bound l3 True
-                            else (empty,empty)
+                            else (S.empty,S.empty)
     else if isJust v1 && isJust v3 then
         if not b1 && not b3 then bound l2 True
-                            else (empty,empty)
+                            else (S.empty,S.empty)
     else if isJust v2 && isJust v3 then
         if not b2 && not b3 then bound l1 True
-                            else (empty,empty)
-    else (empty,empty)
+                            else (S.empty,S.empty)
+    else (S.empty,S.empty)
  where (v1,v2,v3) = (boundValue l1 as,boundValue l2 as,boundValue l3 as)
        (Just b1,Just b2,Just b3) = (v1,v2,v3) -- as above
 -- }}}
@@ -71,51 +77,101 @@ reduceClause (C3 l1 l2 l3) as =
 -- {{{ CNF
 _propageCNF :: CNF -> Assum -> Assum -> Assum
 _propageCNF  []   _  acc     = acc
-_propageCNF (h:t) as (at,af) = (union at ht,union af hf)
+_propageCNF (h:t) as (at,af) = (S.union at ht,S.union af hf)
  where (ht,hf) = reduceClause h as
 
--- TODO propagate recursively
 propageCNF :: CNF -> Assum -> Assum
-propageCNF cnf as = _propageCNF cnf as (empty,empty)
+propageCNF cnf as@(at,af) = if S.null nt && S.null nf
+                             then propageCNF cnf (S.union at t, S.union af f)
+                             else as
+ where (t,f) = _propageCNF cnf as (S.empty,S.empty)
+       (nt,nf) = (t \\ at, f \\ af)
 -- }}}
 
 -- }}}
 
 -- {{{ DPLL (Davis-Putnam-Logemann-Loveland) algorithm
 freeVars :: Int -> Assum -> Set Literal
-freeVars n (t,f) = all \\ union t f
- where all = fromList [1..n]
+freeVars n (t,f) = all \\ S.union t f
+ where all = S.fromList [1..n]
 
 contradict :: Assum -> Bool
-contradict (t,f) = not $ isEmptySet $ intersection t f
+contradict (t,f) = not $ S.null $ S.intersection t f
 
 -- Relies on laziness to compute only what is necessary
 _dpll :: CNF -> Int -> Assum -> Decider -> Assum
 _dpll cnf n as d =
-    if isEmptySet f then as -- If there are no free variable left, the
-                            -- assumption is a valid assignement
+    if db && S.null f then as -- If there are no free variable left, the
+                        -- assumption is a valid assignement
     else if nval then -- We first set nvar to True before false
         if contradict chkt then chkf else chkt
     else
         if contradict chkf then chkt else chkf
  where (at,af) = as
+       db = Tr.traceShow as True
        f = freeVars n as
        (nvar,nval) = d f -- Choosing which assumption to make
        -- The new assumptions structures
-       nast = (insert nvar at, af)
-       nasf = (at, insert nvar af)
+       nast = (S.insert nvar at, af)
+       nasf = (at, S.insert nvar af)
        -- The propagation results
        (ptt,pft) = propageCNF cnf nast
        (ptf,pff) = propageCNF cnf nasf
        -- Check recursively
-       chkt = _dpll cnf n (union at ptt,union af pft) d
-       chkf = _dpll cnf n (union at ptf,union af pff) d
+       chkt = _dpll cnf n (S.union at ptt,S.union af pft) d
+       chkf = _dpll cnf n (S.union at ptf,S.union af pff) d
 
 -- The dpll algorithm interface
 -- Returns Nothing if the CNF is not satisfaisable, and Just a valid
 -- assumption on the other case
 dpll :: (CNF,Int) -> Decider -> Maybe Assum
 dpll (cnf,n) d = if contradict r then Nothing else Just r
- where r = _dpll cnf n (empty,empty) d
+ where r = _dpll cnf n (S.empty,S.empty) d
+-- }}}
+
+-- {{{ IO
+findSize :: CNF -> Int
+findSize []    = 0
+findSize (c:t) = max mcl $ findSize t
+ where mcl = case c of
+              C0 _     -> 0
+              C1 a     -> abs a
+              C2 a b   -> max (abs a) (abs b)
+              C3 a b c -> max (abs a) $ max (abs b) (abs c)
+
+parseClause :: String -> Maybe Clause
+parseClause str = case n of
+                   1 -> Just $ C1 $ read $ head parts
+                   2 -> Just $ C2 (read $ head parts)
+                                  (read $ head $ tail parts)
+                   3 -> Just $ C3 (read $ head parts)
+                                  (read $ head $ tail parts)
+                                  (read $ head $ tail $ tail parts)
+                   _ -> Nothing
+ where parts = Spl.split (Spl.dropBlanks $ Spl.dropDelims $ Spl.oneOf " ") str
+       n = length parts
+
+parseContent :: [String] -> CNF
+parseContent []    = []
+parseContent (l:t) = parseClause l *: parseContent t
+
+readCNF :: FilePath -> IO (CNF,Int)
+readCNF path =
+    do file <- openFile path ReadMode
+       content <- hGetContents file
+       let cnf = parseContent $ lines content
+       return (cnf,findSize cnf)
+-- }}}
+
+-- {{{ Main loop
+decider :: Set Literal -> (Literal,Bool)
+decider s = (head $ S.elems s, True)
+
+main :: IO ()
+main = do cnf <- readCNF "cnf"
+          let r = dpll cnf decider
+          if isNothing r then putStrLn "Not satisfaisable"
+          else do putStrLn "Satisfaisable :"
+                  let Just v = r in putStrLn $ show v
 -- }}}
 
