@@ -26,6 +26,10 @@ type Decider = Set Literal -> (Literal,Bool)
 (*:) Nothing  l = l
 (*:) (Just v) l = v:l
 
+-- Splitting on one of m, removing blanks and delimiters
+splitOn :: Eq a => [a] -> [a] -> [[a]]
+splitOn m = Spl.split (Spl.dropBlanks $ Spl.dropDelims $ Spl.oneOf m)
+
 -- }}}
 
 -- {{{ Propagation
@@ -149,7 +153,7 @@ parseClause str = case n of
                                   (read $ head $ tail parts)
                                   (read $ head $ tail $ tail parts)
                    _ -> Nothing
- where parts = Spl.split (Spl.dropBlanks $ Spl.dropDelims $ Spl.oneOf " ") str
+ where parts = splitOn " " str
        n = length parts
 
 parseContent :: [String] -> CNF
