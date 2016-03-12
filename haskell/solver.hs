@@ -71,19 +71,21 @@ reduceClause (C3 l1 l2 l3) as =
                             else (S.empty,S.empty)
     else (S.empty,S.empty)
  where (v1,v2,v3) = (boundValue l1 as,boundValue l2 as,boundValue l3 as)
-       (Just b1,Just b2,Just b3) = (v1,v2,v3) -- as above
+       Just b1 = v1
+       Just b2 = v2
+       Just b3 = v3
 -- }}}
 
 -- {{{ CNF
 _propageCNF :: CNF -> Assum -> Assum -> Assum
 _propageCNF  []   _  acc     = acc
-_propageCNF (h:t) as (at,af) = (S.union at ht,S.union af hf)
+_propageCNF (h:t) as (at,af) = _propageCNF t as (S.union at ht,S.union af hf)
  where (ht,hf) = reduceClause h as
 
 propageCNF :: CNF -> Assum -> Assum
 propageCNF cnf as@(at,af) = if S.null nt && S.null nf
-                             then propageCNF cnf (S.union at t, S.union af f)
-                             else as
+                             then as
+                             else propageCNF cnf (S.union at t, S.union af f)
  where (t,f) = _propageCNF cnf as (S.empty,S.empty)
        (nt,nf) = (t \\ at, f \\ af)
 -- }}}
@@ -101,14 +103,13 @@ contradict (t,f) = not $ S.null $ S.intersection t f
 -- Relies on laziness to compute only what is necessary
 _dpll :: CNF -> Int -> Assum -> Decider -> Assum
 _dpll cnf n as d =
-    if db && S.null f then as -- If there are no free variable left, the
+    if S.null f then as -- If there are no free variable left, the
                         -- assumption is a valid assignement
     else if nval then -- We first set nvar to True before false
         if contradict chkt then chkf else chkt
     else
         if contradict chkf then chkt else chkf
  where (at,af) = as
-       db = Tr.traceShow as True
        f = freeVars n as
        (nvar,nval) = d f -- Choosing which assumption to make
        -- The new assumptions structures
@@ -160,7 +161,9 @@ readCNF path =
     do file <- openFile path ReadMode
        content <- hGetContents file
        let cnf = parseContent $ lines content
-       return (cnf,findSize cnf)
+       let size = findSize cnf
+       putStrLn $ show (cnf,size)
+       return (cnf,size)
 -- }}}
 
 -- {{{ Main loop
