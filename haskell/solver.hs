@@ -6,6 +6,8 @@ import Data.Maybe
 import qualified Data.List.Split as Spl
 import System.IO
 import qualified Debug.Trace as Tr
+import qualified Control.Exception as E
+import Data.Typeable (Typeable)
 
 -- {{{ Utils
 type Literal = Int
@@ -29,6 +31,10 @@ type Decider = Set Literal -> (Literal,Bool)
 -- Splitting on one of m, removing blanks and delimiters
 splitOn :: Eq a => [a] -> [a] -> [[a]]
 splitOn m = Spl.split (Spl.dropBlanks $ Spl.dropDelims $ Spl.oneOf m)
+
+-- Exception
+data CNFException = CNFE String deriving (Typeable,Show)
+instance E.Exception CNFException
 
 -- }}}
 
@@ -156,18 +162,31 @@ parseClause str = case n of
  where parts = splitOn " " str
        n = length parts
 
-parseContent :: [String] -> CNF
-parseContent []    = []
-parseContent (l:t) = parseClause l *: parseContent t
+parseClauses :: [String] -> CNF -> CNF
+parseClauses  []   c = c
+parseClauses (h:t) c = parseClauses t $ parseClause h *: c
+
+parseDec :: String -> Int
+parseDec str = if n < 3 then -1 else read $ parts !! 2
+ where parts = splitOn " " str
+       n = length parts
+
+parseContent :: [String] -> CNF -> Int -> (CNF,Int)
+parseContent []    c n = (c,n)
+parseContent (l:t) c n =
+ if null l then parseContent t c n else
+ case head l of
+  'c' -> parseContent t c n
+  'p' -> let nb = parseDec l in parseContent t c nb
+  _   -> let cls = parseClauses (splitOn "0" l) c in parseContent t cls n
 
 readCNF :: FilePath -> IO (CNF,Int)
 readCNF path =
     do file <- openFile path ReadMode
        content <- hGetContents file
-       let cnf = parseContent $ lines content
-       let size = findSize cnf
-       putStrLn $ show (cnf,size)
-       return (cnf,size)
+       let (cnf,size) = parseContent (lines content) [] (-1)
+       if size < 0 then E.throwIO (CNFE "Invalid DIMACS file")
+                   else return (cnf,size)
 -- }}}
 
 -- {{{ Main loop
