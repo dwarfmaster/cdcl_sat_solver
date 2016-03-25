@@ -1,13 +1,15 @@
 -- vim:set foldmethod=marker:
 
-import Data.Set (Set,(\\))
-import qualified Data.Set as S
-import Data.Maybe
-import qualified Data.List.Split as Spl
-import System.IO
-import qualified Debug.Trace as Tr
+module Solver (dpll,Literal,Clause,CNF,Assum,Decider) where
+
+import           Data.Set          (Set,(\\))
+import qualified Data.Set          as S
+import           Data.Maybe
+import qualified Data.List.Split   as Spl
+import           System.IO
+import qualified Debug.Trace       as Tr
 import qualified Control.Exception as E
-import Data.Typeable (Typeable)
+import           Data.Typeable     (Typeable)
 
 -- {{{ Utils
 type Literal = Int
