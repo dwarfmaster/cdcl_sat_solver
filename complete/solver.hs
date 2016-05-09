@@ -34,13 +34,13 @@ data Status a = Status
     }
 type Chooser a = Status a -> (Status a,Maybe Literal)
 
-mkStatus :: Int -> Int -> CNF -> a -> Chooser a -> Status a
-mkStatus n re sat d c = Status
+mkStatus :: Int -> CNF -> a -> Chooser a -> Status a
+mkStatus n sat d c = Status
     { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
     , sat_st     = sat
     , error_st   = False
     , new_st     = Nothing
-    , restart_st = re
+    , restart_st = 0
     , chdata_st  = d
     , chooser_st = c
     , tobnd_st   = []
@@ -59,12 +59,16 @@ instance Monad (MdSt a) where
                                    let MdSt g = b x in g ns)
     return = pure
 
-runMdSt :: Int -> Int -> CNF -> a -> Chooser a -> MdSt a b -> b
-runMdSt n re sat d c (MdSt m) = snd $ m $ mkStatus n re sat d c
+runMdSt :: Int -> CNF -> a -> Chooser a -> MdSt a b -> b
+runMdSt n sat d c (MdSt m) = snd $ m $ mkStatus n sat d c
 
 -- }}}
 
 -- {{{ Tools
+mapArray :: Ix i => (a -> b) -> Array i a -> Array i b
+mapArray f a = A.array b [(i,f $ a ! i) | i <- range b]
+ where b = A.bounds a
+
 neg :: Literal -> Literal
 neg (L l) = L $ -l
 
@@ -92,6 +96,16 @@ push = MdSt $ \s -> let v = vars_st s in
 pop :: MdSt a ()
 pop = MdSt $ \s -> let v = vars_st s in
                    (s {vars_st = tail v}, ())
+
+-- Can only be called if vars_st s has at least two elements
+collapse :: MdSt a ()
+collapse = MdSt $ \s -> let h1:h2:t = vars_st s in
+                        (s {vars_st = h1:t}, ())
+
+clear_vars :: MdSt a ()
+clear_vars = MdSt $ \s -> let b = A.bounds $ head $ vars_st s in
+                    (s {vars_st = A.array b [(i,Nothing) | i <- range b] : []}
+                    , ())
 
 sat_get :: MdSt a CNF
 sat_get = MdSt $ \s -> (s,sat_st s)
@@ -148,10 +162,11 @@ raise_on f l = do (r,t) <- raise_r f l
 -- }}}
 
 -- {{{ Control
-foreach :: (a -> MdSt b ()) -> [a] -> MdSt b ()
-foreach f []    = return ()
-foreach f (h:t) = do f h
-                     foreach f t
+tryuntil :: (c -> MdSt b Bool) -> (a -> MdSt b c) -> [a] -> MdSt b c
+tryuntil u f (h:t) = do r <- f h
+                        b <- u r
+                        if b then return r
+                             else tryuntil u f t
 
 formap :: (a -> MdSt b c) -> [a] -> MdSt b [c]
 formap f []    = return []
@@ -207,23 +222,51 @@ two_watch_all = while test $ do
 -- Returns Nothing if it ended due to a restart, Just True is the problem is
 -- SAT and Just False if UNSAT
 cdcl :: MdSt a (Maybe Bool)
-cdcl = do ml <- choose
-          if ml == Nothing then do e <- is_error
-                                   if not e then return $ Just True
-                                   else do dec_restart
+cdcl = do e <- is_error
+          if e then return $ Just False
+          else do ml <- choose
+                  if ml == Nothing then do dec_restart
                                            b <- should_restart
                                            return $ if b then Nothing
-                                                         else Just False
-          else do let l = fromJust ml
-                  bind l
-                  push
-                  two_watch_all
-                  r <- cdcl
-                  if r /= Just False then return r
-                  else do pop
-                          bind $ neg l
+                                                         else Just True
+                  else do let l = fromJust ml
+                          bind l
+                          push
                           two_watch_all
-                          cdcl
+                          r <- cdcl
+                          if r /= Just False then do collapse
+                                                     return r
+                          else do pop
+                                  clear_error
+                                  bind $ neg l
+                                  two_watch_all
+                                  cdcl
+
+solver :: MdSt a (Maybe (Array Literal Bool))
+solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
+            let b = fromJust r
+            if b then do v <- MdSt $ \s -> (s,head $ vars_st s)
+                         return $ Just $ mapArray fj v
+                 else return Nothing
+ where restarts = [2 ^ i | i <- [8..]]
+       test x = return $ x /= Nothing
+       setre i = MdSt $ \s -> (s {restart_st = i}, ())
+       clear = clear_vars >> clear_error
+       fj Nothing  = True
+       fj (Just v) = v
+
+-- }}}
+
+-- {{{ Main
+defChooser :: Status () -> (Status (), Maybe Literal)
+defChooser s = if f == [] then (s,Nothing) else (s,Just $ head f)
+ where f = [i | (i,e) <- A.assocs v, e /= Nothing]
+       v = head $ vars_st s
+
+testCNF = [[L 1, L 2], [L (-2), L (-1)], [L 4, L (-5)]]
+
+main :: IO ()
+main = putStrLn $ show $ runMdSt 5 testCNF () defChooser solver
 
 -- }}}
 
