@@ -121,12 +121,17 @@ sat_get = MdSt $ \s -> (s,sat_st s)
 sat_set :: CNF -> MdSt a ()
 sat_set sat = MdSt $ \s -> (s {sat_st = sat}, ())
 
+sat_add_clause :: Clause -> MdSt a ()
+sat_add_clause c = MdSt $ \s -> (s {sat_st = c : sat_st s,
+                                    new_st = Just c}
+                                , ())
+
 new_clause :: MdSt a (Maybe Clause)
 new_clause = MdSt $ \s -> (s,new_st s)
 
 -- Test if restart is necessary
 should_restart :: MdSt a Bool
-should_restart = MdSt $ \s -> (s, restart_st s == 0)
+should_restart = MdSt $ \s -> (s, restart_st s <= 0)
 
 -- Decrement the restart counter
 dec_restart :: MdSt a ()
@@ -157,6 +162,9 @@ tobnd_peek = MdSt $ \s -> (s, case tobnd_st s of
 tobnd_add :: Literal -> MdSt a ()
 tobnd_add h = MdSt $ \s -> (s {tobnd_st = h : tobnd_st s}, ())
 
+clear_tobnd :: MdSt a ()
+clear_tobnd = MdSt $ \s -> (s {tobnd_st = []}, ())
+
 -- Take the first element of l for which f is true, and put it first
 -- Do nothing if f is always false on l
 raise_on :: (a -> MdSt b Bool) -> [a] -> MdSt b [a]
@@ -173,6 +181,7 @@ raise_on f l = do (r,t) <- raise_r f l
 -- }}}
 
 -- {{{ Control
+-- Assums u will return true before the list empties
 tryuntil :: (c -> MdSt b Bool) -> (a -> MdSt b c) -> [a] -> MdSt b c
 tryuntil u f (h:t) = do r <- f h
                         b <- u r
@@ -222,33 +231,37 @@ two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
        else return ()
        return [h]
 two_watch l@(h1:h2:t) =
-    do b <- r h1
-       nc <- if b then do n <- raise_on r $ h2 : t
-                          return $ h1 : n
-                  else do (nh:nt) <- raise_on r $ l
-                          nt2 <- raise_on r nt
-                          return $ nh : nt2
-       let n1:n2:_ = nc
-       s1 <- status n1
-       s2 <- status n2
-       if s1 == Just False then launch_error
-       else if s2 == Just False && s1 == Nothing then tobnd_add n1
+    do nc <- do (nh:nt) <- raise_on r $ l -- We make sure the first variable is 
+                                          -- not bound to false
+                nt2 <- raise_on r nt      -- Idem for the second variable
+                return $ nh : nt2
+       let l1:l2:_ = nc
+       s1 <- status l1
+       s2 <- status l2
+       if s1 == Just False then launch_error -- Means all variables are bound
+                                             -- to false
+       -- Means all variables are bound to false except the first one, which
+       -- is not bound and thus must be
+       else if s2 == Just False && s1 == Nothing then tobnd_add l1
        else return ()
        return nc
  where r l = do b <- status l
                 return $ b /= (Just False)
 
--- Apply two-watch simplification to all clauses
+-- Apply two-watch simplification to all clauses, bounding all necessary
+-- variables
 two_watch_all :: MdSt a ()
-two_watch_all = while test $ do
-    tb <- tobnd_get
-    bind $ fromJust tb
-    e <- is_error
-    if e then return ()
-    else do cnf <- sat_get
-            ncnf <- formap two_watch cnf
-            sat_set ncnf
-            return ()
+two_watch_all = do
+    while test $ do
+        tb <- tobnd_get
+        bind $ fromJust tb
+        e <- is_error
+        if e then return ()
+        else do cnf <- sat_get
+                ncnf <- formap two_watch cnf
+                sat_set ncnf
+                return ()
+    clear_tobnd
  where test = do e  <- is_error
                  tb <- tobnd_peek
                  return $ not e && tb /= Nothing
@@ -269,7 +282,7 @@ cdcl = do e <- is_error
                                            return $ if b then Nothing
                                                          else Just True
                   else do let l = fromJust ml
-                          bind l
+                          tobnd_add l
                           push
                           two_watch_all
                           r <- cdcl
@@ -277,7 +290,7 @@ cdcl = do e <- is_error
                                                      return r
                           else do pop
                                   clear_error
-                                  bind $ neg l
+                                  tobnd_add $ neg l
                                   two_watch_all
                                   cdcl
 
