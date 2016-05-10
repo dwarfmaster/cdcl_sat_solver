@@ -89,8 +89,14 @@ sat_add_clause c = MdSt $ \s -> (s {sat_st = c : sat_st s,
                                     new_st = Just c}
                                 , ())
 
-new_clause :: MdSt a (Maybe Clause)
-new_clause = MdSt $ \s -> (s,new_st s)
+is_new :: Literal -> MdSt a Bool
+is_new l = MdSt $ \s -> let n = new_st s in if n == Nothing then (s,False)
+                        -- Equality is tested using the Eq instance, which is
+                        -- independant of wether the literal is negated or not
+                        else (s, elem l $ fromJust n)
+
+clear_new :: MdSt a ()
+clear_new = MdSt $ \s -> (s {new_st = Nothing}, ())
 
 -- Test if restart is necessary
 should_restart :: MdSt a Bool
@@ -127,6 +133,12 @@ tobnd_add h = MdSt $ \s -> (s {tobnd_st = h : tobnd_st s}, ())
 
 clear_tobnd :: MdSt a ()
 clear_tobnd = MdSt $ \s -> (s {tobnd_st = []}, ())
+
+-- Create a clause representing the negation of variable set
+derive_clause :: MdSt a Clause
+derive_clause = MdSt $ \s -> (s, [ if fromJust e then i else neg i
+                                 | (i,e) <- A.assocs $ head $ vars_st s
+                                 , e /= Nothing ])
 
 -- Take the first element of l for which f is true, and put it first
 -- Do nothing if f is always false on l
@@ -215,7 +227,8 @@ two_watch_all = do
 -- SAT and Just False if UNSAT
 cdcl :: MdSt a (Maybe Bool)
 cdcl = do e <- is_error
-          if e then return $ Just False
+          if e then do derive_clause >>= sat_add_clause
+                       return $ Just False
           else do ml <- choose
                   if ml == Nothing then do dec_restart
                                            b <- should_restart
@@ -229,10 +242,12 @@ cdcl = do e <- is_error
                           if r /= Just False then do collapse
                                                      return r
                           else do pop
-                                  clear_error
-                                  tobnd_add $ neg l
-                                  two_watch_all
-                                  cdcl
+                                  b <- is_new $ fromJust ml
+                                  if b then do clear_error >> clear_new
+                                               tobnd_add $ neg l
+                                               two_watch_all
+                                               cdcl
+                                       else return $ Just False
 
 solver :: MdSt a (Maybe (Array Literal Bool))
 solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
@@ -243,7 +258,7 @@ solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
  where restarts = [2 ^ i | i <- [8..]]
        test x = return $ x /= Nothing
        setre i = MdSt $ \s -> (s {restart_st = i}, ())
-       clear = clear_vars >> clear_error
+       clear = clear_vars >> clear_error >> clear_new
        fj Nothing  = True
        fj (Just v) = v
 
