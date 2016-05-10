@@ -4,7 +4,6 @@ import Data.Array (Array,(!),(//)
                    ,Ix,range,index,inRange)
 import qualified Data.Array as A
 import Data.Maybe
-import Debug.Trace
 
 -- {{{ Data structures
 data Literal = L Int
@@ -34,6 +33,15 @@ data Status a = Status
     , tobnd_st   :: [Literal] -- Literals that must be bound
     }
 type Chooser a = Status a -> (Status a,Maybe Literal)
+instance Show (Status a) where
+    show s = "Status :"
+           ++ "\n\tvars = "    ++ show (vars_st s)
+           ++ "\n\tsat  = "    ++ show (sat_st s)
+           ++ "\n\terror = "   ++ show (error_st s)
+           ++ "\n\tnew = "     ++ show (new_st s)
+           ++ "\n\trestart = " ++ show (restart_st s)
+           ++ "\n\ttobnd = "   ++ show (tobnd_st s)
+           ++ "\n\n"
 
 mkStatus :: Int -> CNF -> a -> Chooser a -> Status a
 mkStatus n sat d c = Status
@@ -200,25 +208,6 @@ while f g = do b <- f
 
 -- }}}
 
--- {{{ Debug
-traceStatus :: MdSt a ()
-traceStatus = MdSt $ \s -> let s2 = traceShowId s in (s2,())
-
-mdtrace :: Show a => a -> MdSt b ()
-mdtrace x = MdSt $ \s -> let s2 = traceShow x s in (s2,())
-
-instance Show (Status a) where
-    show s = "Status :"
-           ++ "\n\tvars = "    ++ show (vars_st s)
-           ++ "\n\tsat  = "    ++ show (sat_st s)
-           ++ "\n\terror = "   ++ show (error_st s)
-           ++ "\n\tnew = "     ++ show (new_st s)
-           ++ "\n\trestart = " ++ show (restart_st s)
-           ++ "\n\ttobnd = "   ++ show (tobnd_st s)
-           ++ "\n\n"
-
--- }}}
-
 -- {{{ CDCL
 -- Apply two-watch simplification to a clause
 two_watch :: Clause -> MdSt a Clause
@@ -271,14 +260,10 @@ two_watch_all = do
 -- SAT and Just False if UNSAT
 cdcl :: MdSt a (Maybe Bool)
 cdcl = do e <- is_error
-          if e then do traceStatus
-                       mdtrace False
-                       return $ Just False
+          if e then return $ Just False
           else do ml <- choose
                   if ml == Nothing then do dec_restart
                                            b <- should_restart
-                                           traceStatus
-                                           mdtrace True
                                            return $ if b then Nothing
                                                          else Just True
                   else do let l = fromJust ml
