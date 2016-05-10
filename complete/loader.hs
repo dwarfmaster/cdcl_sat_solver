@@ -24,7 +24,7 @@ findSize cnf = maximum $ map mcl cnf
        abl (L l) = abs l
 
 parseClause :: String -> (Int,Clause)
-parseClause str = (0,map rlit parts)
+parseClause str = (0, filter (\(L l) -> l /= 0) $ map rlit parts)
  where parts = Spl.splitOn " " str
        rlit s = L (read s :: Int)
 
