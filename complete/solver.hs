@@ -4,6 +4,7 @@ import Data.Array (Array,(!),(//)
                    ,Ix,range,index,inRange)
 import qualified Data.Array as A
 import Data.Maybe
+import Debug.Trace
 
 -- {{{ Data structures
 data Literal = L Int
@@ -85,9 +86,16 @@ mult (L l) (Just b) = if l < 0 then Just $ not b else Just b
 status :: Literal -> MdSt a MBool
 status l = MdSt $ \s -> (s,mult l $ (head $ vars_st s) ! l)
 
-bind :: Literal -> MdSt a ()
-bind l = MdSt $ \s -> let h:t = vars_st s in
+_bind :: Literal -> MdSt a ()
+_bind l = MdSt $ \s -> let h:t = vars_st s in
                       (s {vars_st = h // [(l,Just $ sgn l)] : t}, ())
+
+bind :: Literal -> MdSt a ()
+bind l = do s <- status l
+            if s == Nothing then _bind l
+            else if s /= b then launch_error
+            else return ()
+ where b = Just $ sgn l
 
 push :: MdSt a ()
 push = MdSt $ \s -> let v = vars_st s in
@@ -183,6 +191,25 @@ while f g = do b <- f
 
 -- }}}
 
+-- {{{ Debug
+traceStatus :: MdSt a ()
+traceStatus = MdSt $ \s -> let s2 = traceShowId s in (s2,())
+
+mdtrace :: Show a => a -> MdSt b ()
+mdtrace x = MdSt $ \s -> let s2 = traceShow x s in (s2,())
+
+instance Show (Status a) where
+    show s = "Status :"
+           ++ "\n\tvars = "    ++ show (vars_st s)
+           ++ "\n\tsat  = "    ++ show (sat_st s)
+           ++ "\n\terror = "   ++ show (error_st s)
+           ++ "\n\tnew = "     ++ show (new_st s)
+           ++ "\n\trestart = " ++ show (restart_st s)
+           ++ "\n\ttobnd = "   ++ show (tobnd_st s)
+           ++ "\n\n"
+
+-- }}}
+
 -- {{{ CDCL
 -- Apply two-watch simplification to a clause
 two_watch :: Clause -> MdSt a Clause
@@ -198,7 +225,9 @@ two_watch l@(h1:h2:t) =
     do b <- r h1
        nc <- if b then do n <- raise_on r $ h2 : t
                           return $ h1 : n
-                  else raise_on r $ l
+                  else do (nh:nt) <- raise_on r $ l
+                          nt2 <- raise_on r nt
+                          return $ nh : nt2
        let n1:n2:_ = nc
        s1 <- status n1
        s2 <- status n2
@@ -214,10 +243,12 @@ two_watch_all :: MdSt a ()
 two_watch_all = while test $ do
     tb <- tobnd_get
     bind $ fromJust tb
-    cnf <- sat_get
-    ncnf <- formap two_watch cnf
-    sat_set ncnf
-    return ()
+    e <- is_error
+    if e then return ()
+    else do cnf <- sat_get
+            ncnf <- formap two_watch cnf
+            sat_set ncnf
+            return ()
  where test = do e  <- is_error
                  tb <- tobnd_peek
                  return $ not e && tb /= Nothing
@@ -227,10 +258,14 @@ two_watch_all = while test $ do
 -- SAT and Just False if UNSAT
 cdcl :: MdSt a (Maybe Bool)
 cdcl = do e <- is_error
-          if e then return $ Just False
+          if e then do traceStatus
+                       mdtrace False
+                       return $ Just False
           else do ml <- choose
                   if ml == Nothing then do dec_restart
                                            b <- should_restart
+                                           traceStatus
+                                           mdtrace True
                                            return $ if b then Nothing
                                                          else Just True
                   else do let l = fromJust ml
