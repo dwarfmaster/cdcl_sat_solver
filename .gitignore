@@ -1,6 +1,5 @@
 *.hi
 *.o
-haskell/solver
-complete/main
-**/cnf*
+main
+cnf/
 
