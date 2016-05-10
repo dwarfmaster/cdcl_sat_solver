@@ -110,6 +110,9 @@ clear_vars = MdSt $ \s -> let b = A.bounds $ head $ vars_st s in
 sat_get :: MdSt a CNF
 sat_get = MdSt $ \s -> (s,sat_st s)
 
+sat_set :: CNF -> MdSt a ()
+sat_set sat = MdSt $ \s -> (s {sat_st = sat}, ())
+
 new_clause :: MdSt a (Maybe Clause)
 new_clause = MdSt $ \s -> (s,new_st s)
 
@@ -212,7 +215,8 @@ two_watch_all = while test $ do
     tb <- tobnd_get
     bind $ fromJust tb
     cnf <- sat_get
-    formap two_watch cnf
+    ncnf <- formap two_watch cnf
+    sat_set ncnf
     return ()
  where test = do e  <- is_error
                  tb <- tobnd_peek
@@ -260,7 +264,7 @@ solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
 -- {{{ Main
 defChooser :: Status () -> (Status (), Maybe Literal)
 defChooser s = if f == [] then (s,Nothing) else (s,Just $ head f)
- where f = [i | (i,e) <- A.assocs v, e /= Nothing]
+ where f = [i | (i,e) <- A.assocs v, e == Nothing]
        v = head $ vars_st s
 
 testCNF = [[L 1, L 2], [L (-2), L (-1)], [L 4, L (-5)]]
