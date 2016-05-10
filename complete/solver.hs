@@ -1,60 +1,15 @@
 -- vim:set foldmethod=marker:
 
+module SAT.Solver (defChooser,solveGen,solve) where
 import Data.Array (Array,(!),(//)
                    ,Ix,range,index,inRange)
 import qualified Data.Array as A
 import Data.Maybe
 
+import SAT.Structures
+import SAT.Status
+
 -- {{{ Data structures
-data Literal = L Int
-instance Eq Literal where
-    (==) (L a) (L b) = abs a == abs b
-instance Ord Literal where
-    (<=) (L a) (L b) = abs a <= abs b
-instance Ix Literal where
-    range   (L a,L b)       = map L $ range (abs a,abs b)
-    index   (L a,L b) (L c) = index (abs a,abs b) $ abs c
-    inRange (L a,L b) (L c) = inRange (abs a,abs b) $ abs c
-instance Show Literal where
-    show (L a) = "L " ++ show a
-
-type Clause = [Literal]
-type CNF = [Clause]
-
-type MBool = Maybe Bool
-data Status a = Status
-    { vars_st    :: [Array Literal MBool]
-    , sat_st     :: CNF
-    , error_st   :: Bool -- True if vars are a contradiction
-    , new_st     :: Maybe Clause -- Last learnt clause, for bactracking
-    , restart_st :: Int -- Number of tries before restart
-    , chdata_st  :: a -- Data for the function choosing the new variable to set
-    , chooser_st :: Chooser a
-    , tobnd_st   :: [Literal] -- Literals that must be bound
-    }
-type Chooser a = Status a -> (Status a,Maybe Literal)
-instance Show (Status a) where
-    show s = "Status :"
-           ++ "\n\tvars = "    ++ show (vars_st s)
-           ++ "\n\tsat  = "    ++ show (sat_st s)
-           ++ "\n\terror = "   ++ show (error_st s)
-           ++ "\n\tnew = "     ++ show (new_st s)
-           ++ "\n\trestart = " ++ show (restart_st s)
-           ++ "\n\ttobnd = "   ++ show (tobnd_st s)
-           ++ "\n\n"
-
-mkStatus :: Int -> CNF -> a -> Chooser a -> Status a
-mkStatus n sat d c = Status
-    { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
-    , sat_st     = sat
-    , error_st   = False
-    , new_st     = Nothing
-    , restart_st = 0
-    , chdata_st  = d
-    , chooser_st = c
-    , tobnd_st   = []
-    }
-
 data MdSt a b = MdSt (Status a -> (Status a,b))
 instance Functor (MdSt a) where
     fmap f (MdSt g) = MdSt (\s -> let (ns,x) = g s in (ns,f x))
@@ -300,10 +255,11 @@ defChooser s = if f == [] then (s,Nothing) else (s,Just $ head f)
  where f = [i | (i,e) <- A.assocs v, e == Nothing]
        v = head $ vars_st s
 
-testCNF = [[L 1, L 2], [L (-2), L (-1)], [L 4, L (-5)]]
+solveGen :: a -> Chooser a -> (Int,CNF) -> Maybe (Array Literal Bool)
+solveGen d c (n,sat) = runMdSt n sat d c $ solver
 
-main :: IO ()
-main = putStrLn $ show $ runMdSt 5 testCNF () defChooser solver
+solve :: (Int,CNF) -> Maybe (Array Literal Bool)
+solve = solveGen () defChooser
 
 -- }}}
 
