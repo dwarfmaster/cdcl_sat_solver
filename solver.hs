@@ -192,10 +192,15 @@ two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
        else return ()
        return [h]
 two_watch l@(h1:h2:t) =
-    do nc <- do (nh:nt) <- raise_on r $ l -- We make sure the first variable is 
-                                          -- not bound to false
-                nt2 <- raise_on r nt      -- Idem for the second variable
-                return $ nh : nt2
+    do nc <- do (th:tt) <- raise_on r2 l -- We try to bind the first variable
+                                         -- to true
+                s <- status th
+                if s == Just True then return l
+                else do (nh:nt) <- raise_on r $ l -- We make sure the first
+                                                  -- variable is not bound to
+                                                  -- false
+                        nt2 <- raise_on r nt      -- Idem for the second one
+                        return $ nh : nt2
        let l1:l2:_ = nc
        s1 <- status l1
        s2 <- status l2
@@ -208,6 +213,8 @@ two_watch l@(h1:h2:t) =
        return nc
  where r l = do b <- status l
                 return $ b /= (Just False)
+       r2 l = do b <- status l
+                 return $ b == Just True
 
 -- Apply two-watch simplification to all clauses, bounding all necessary
 -- variables
