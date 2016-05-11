@@ -61,8 +61,8 @@ mkVSIDS :: Int   -- how often to bump
         -> Float -- the bump
         -> Float -- the decay
         -> Int   -- the number of variables
-mkVSIDS i b d n = VSIDS (A.array (-n,n) [(i,0) | i <- A.range (-n,n)])
-                        d b i 0
+        -> VSIDS
+mkVSIDS i b d n = VSIDS (A.array (-n,n) [(i,0) | i <- A.range (-n,n)]) d b i 0
 defVSIDS = mkVSIDS 1 1.0 0.5
 -- }}}
 
