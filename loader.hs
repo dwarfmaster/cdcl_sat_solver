@@ -25,7 +25,7 @@ findSize cnf = maximum $ map mcl cnf
 
 parseClause :: String -> (Int,Clause)
 parseClause str = (0, filter (\(L l) -> l /= 0) $ map rlit parts)
- where parts = Spl.splitOn " " str
+ where parts = filter (not.null) $ Spl.splitOn " " str
        rlit s = L (read s :: Int)
 
 -- Concat only if not empty
@@ -35,7 +35,7 @@ parseClause str = (0, filter (\(L l) -> l /= 0) $ map rlit parts)
 
 parseDesc :: String -> (Int,Clause)
 parseDesc str = (nb,[])
- where parts = Spl.splitOn " " str
+ where parts = filter (not.null) $ Spl.splitOn " " str
        n = length parts
        nb = if n == 4 then read $ parts !! 2 else 0
 
