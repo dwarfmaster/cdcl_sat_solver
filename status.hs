@@ -8,16 +8,20 @@ import SAT.Structures
 type MBool = Maybe Bool
 data Status a = Status
     { vars_st    :: [Array Literal MBool]
+    , bound_st   :: [Array Literal Clause] -- Remember which clause bound
+                                           -- the variable
     , sat_st     :: CNF
-    , error_st   :: Bool -- True if vars are a contradiction
+    , error_st   :: Maybe Clause -- Nothing if no contradiction, else the
+                                 -- clause source of the contradiction
     , new_st     :: Maybe Clause -- Last learnt clause, for bactracking
     , restart_st :: Int -- Number of tries before restart
     , chooser_st :: a -- Data for the function choosing the new variable to set
-    , tobnd_st   :: [Literal] -- Literals that must be bound
+    , tobnd_st   :: [(Literal,Clause)] -- Literals that must be bound
     }
 instance Show (Status a) where
     show s = "Status :"
            ++ "\n\tvars = "    ++ show (vars_st s)
+           ++ "\n\tbounds = "  ++ show (bound_st s)
            ++ "\n\tsat  = "    ++ show (sat_st s)
            ++ "\n\terror = "   ++ show (error_st s)
            ++ "\n\tnew = "     ++ show (new_st s)
@@ -28,8 +32,9 @@ instance Show (Status a) where
 mkStatus :: Int -> CNF -> a -> Status a
 mkStatus n sat c = Status
     { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
+    , bound_st   = A.array (L 1,L n) [(L i,[]) | i <- range (1,n)] : []
     , sat_st     = sat
-    , error_st   = False
+    , error_st   = Nothing
     , new_st     = Nothing
     , restart_st = 0
     , chooser_st = c

@@ -52,29 +52,31 @@ mult (L l) (Just b) = if l < 0 then Just $ not b else Just b
 status :: Literal -> MdSt a MBool
 status l = MdSt $ \s -> (s,mult l $ (head $ vars_st s) ! l)
 
-_bind :: Literal -> MdSt a ()
-_bind l = MdSt $ \s -> let h:t = vars_st s in
-                      (s {vars_st = h // [(l,Just $ sgn l)] : t}, ())
+_bind :: Literal -> Clause -> MdSt a ()
+_bind l c = MdSt $ \s -> let h:t = vars_st s in let hb:tb = bound_st s in
+                         (s {vars_st = h // [(l,Just $ sgn l)] : t
+                            ,bound_st = hb // [(l,c)] : tb}
+                         , ())
 
-bind :: Literal -> MdSt a ()
-bind l = do s <- status l
-            if s == Nothing then _bind l
-            else if s /= b then launch_error
-            else return ()
+bind :: Literal -> Clause -> MdSt a ()
+bind l c = do s <- status l
+              if s == Nothing then _bind l c
+              else if s /= b then launch_error c
+              else return ()
  where b = Just $ sgn l
 
 push :: MdSt a ()
-push = MdSt $ \s -> let v = vars_st s in
-                    (s {vars_st = head v : v}, ())
+push = MdSt $ \s -> let v = vars_st s in let b = bound_st s in
+                    (s {vars_st = head v : v, bound_st = head b : b}, ())
 
 pop :: MdSt a ()
-pop = MdSt $ \s -> let v = vars_st s in
-                   (s {vars_st = tail v}, ())
+pop = MdSt $ \s -> let v = vars_st s in let b = bound_st s in
+                   (s {vars_st = tail v, bound_st = tail b}, ())
 
 -- Can only be called if vars_st s has at least two elements
 collapse :: MdSt a ()
-collapse = MdSt $ \s -> let h1:h2:t = vars_st s in
-                        (s {vars_st = h1:t}, ())
+collapse = MdSt $ \s -> let h1:h2:t = vars_st s in let b1:b2:bt = bound_st s in
+                        (s {vars_st = h1:t, bound_st = b1:bt}, ())
 
 clear_vars :: MdSt a ()
 clear_vars = MdSt $ \s -> let b = A.bounds $ head $ vars_st s in
@@ -114,36 +116,40 @@ dec_restart = MdSt $ \s -> let n = restart_st s in
                                      else (s {restart_st = n - 1}, ())
 
 is_error :: MdSt a Bool
-is_error = MdSt $ \s -> (s,error_st s)
+is_error = MdSt $ \s -> (s,not $ isNothing $ error_st s)
 
-launch_error :: MdSt a ()
-launch_error = MdSt $ \s -> (s {error_st = True}, ())
+launch_error :: Clause -> MdSt a ()
+launch_error c = MdSt $ \s -> (s {error_st = Just c}, ())
 
 clear_error :: MdSt a ()
-clear_error = MdSt $ \s -> (s {error_st = False}, ())
+clear_error = MdSt $ \s -> (s {error_st = Nothing}, ())
+
+get_error :: MdSt a (Maybe Clause)
+get_error = MdSt $ \s -> (s, error_st s)
 
 -- Return and remove a literal to bound
-tobnd_get :: MdSt a (Maybe Literal)
+tobnd_get :: MdSt a (Maybe (Literal,Clause))
 tobnd_get = MdSt $ \s -> case tobnd_st s of
                          []  -> (s, Nothing)
                          h:t -> (s {tobnd_st = t}, Just h)
 
-tobnd_peek :: MdSt a (Maybe Literal)
+tobnd_peek :: MdSt a (Maybe (Literal,Clause))
 tobnd_peek = MdSt $ \s -> (s, case tobnd_st s of
                               []  -> Nothing
                               h:_ -> Just h)
 
-tobnd_add :: Literal -> MdSt a ()
-tobnd_add h = MdSt $ \s -> (s {tobnd_st = h : tobnd_st s}, ())
+tobnd_add :: Literal -> Clause -> MdSt a ()
+tobnd_add h c = MdSt $ \s -> (s {tobnd_st = (h,c) : tobnd_st s}, ())
 
 clear_tobnd :: MdSt a ()
 clear_tobnd = MdSt $ \s -> (s {tobnd_st = []}, ())
 
--- Create a clause representing the negation of variable set
-derive_clause :: MdSt a Clause
-derive_clause = MdSt $ \s -> (s, [ if fromJust e then i else neg i
-                                 | (i,e) <- A.assocs $ head $ vars_st s
-                                 , e /= Nothing ])
+-- Create a clause for the contradiction arising in the parameter clause
+-- TODO
+derive_clause :: Clause -> MdSt a Clause
+derive_clause c = MdSt $ \s -> (s, [ if fromJust e then i else neg i
+                                   | (i,e) <- A.assocs $ head $ vars_st s
+                                   , e /= Nothing ])
 
 -- Take the first element of l for which f is true, and put it first
 -- Do nothing if f is always false on l
@@ -187,16 +193,16 @@ two_watch []     = return []
 two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
                    -- simplified singles clauses
     do b <- status h
-       if b == Just False then launch_error
-       else if b == Nothing then tobnd_add h
+       if b == Just False then launch_error [h]
+       else if b == Nothing then tobnd_add h [h]
        else return ()
        return [h]
-two_watch l@(h1:h2:t) =
-    do nc <- do (th:tt) <- raise_on r2 l -- We try to bind the first variable
+two_watch c@(h1:h2:t) =
+    do nc <- do (th:tt) <- raise_on r2 c -- We try to bind the first variable
                                          -- to true
                 s <- status th
-                if s == Just True then return l
-                else do (nh:nt) <- raise_on r $ l -- We make sure the first
+                if s == Just True then return c
+                else do (nh:nt) <- raise_on r $ c -- We make sure the first
                                                   -- variable is not bound to
                                                   -- false
                         nt2 <- raise_on r nt      -- Idem for the second one
@@ -204,11 +210,11 @@ two_watch l@(h1:h2:t) =
        let l1:l2:_ = nc
        s1 <- status l1
        s2 <- status l2
-       if s1 == Just False then launch_error -- Means all variables are bound
-                                             -- to false
+       if s1 == Just False then launch_error c -- Means all variables are bound
+                                               -- to false
        -- Means all variables are bound to false except the first one, which
        -- is not bound and thus must be
-       else if s2 == Just False && s1 == Nothing then tobnd_add l1
+       else if s2 == Just False && s1 == Nothing then tobnd_add l1 c
        else return ()
        return nc
  where r l = do b <- status l
@@ -222,7 +228,8 @@ two_watch_all :: MdSt a ()
 two_watch_all = do
     while test $ do
         tb <- tobnd_get
-        bind $ fromJust tb
+        let (l,c) = fromJust tb
+        bind l c
         e <- is_error
         if e then return ()
         else do cnf <- sat_get
@@ -239,7 +246,8 @@ two_watch_all = do
 -- SAT and Just False if UNSAT
 cdcl :: Chooser a => MdSt a (Maybe Bool)
 cdcl = do e <- is_error
-          if e then do derive_clause >>= sat_add_clause
+          if e then do c <- get_error
+                       derive_clause (fromJust c) >>= sat_add_clause
                        return $ Just False
           else do ml <- choose
                   if ml == Nothing then do dec_restart
@@ -247,7 +255,7 @@ cdcl = do e <- is_error
                                            return $ if b then Nothing
                                                          else Just True
                   else do let l = fromJust ml
-                          tobnd_add l
+                          tobnd_add l []
                           push
                           two_watch_all
                           r <- cdcl
@@ -256,7 +264,7 @@ cdcl = do e <- is_error
                           else do pop
                                   b <- is_new $ fromJust ml
                                   if b then do clear_error >> clear_new
-                                               tobnd_add $ neg l
+                                               tobnd_add (neg l) []
                                                two_watch_all
                                                cdcl
                                        else return $ Just False
