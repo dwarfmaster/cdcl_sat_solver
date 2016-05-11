@@ -263,7 +263,7 @@ solver = do init_chooser
                  else return Nothing
  where restarts = [2 ^ i | i <- [8..]]
        luby = [ let k = 1 + (floor $ log2 i) in if i == 2^k - 1 then 2^(k-1)
-                                                else luby !! (i - 2^(k-1) + 1)
+                                                else luby !! (i - 2^(k-1))
               | i <- [1..]]
        u = 32 -- to implement the luby32 strategy
        log2 :: Int -> Float
