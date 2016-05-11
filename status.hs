@@ -12,11 +12,9 @@ data Status a = Status
     , error_st   :: Bool -- True if vars are a contradiction
     , new_st     :: Maybe Clause -- Last learnt clause, for bactracking
     , restart_st :: Int -- Number of tries before restart
-    , chdata_st  :: a -- Data for the function choosing the new variable to set
-    , chooser_st :: Chooser a
+    , chooser_st :: a -- Data for the function choosing the new variable to set
     , tobnd_st   :: [Literal] -- Literals that must be bound
     }
-type Chooser a = Status a -> (Status a,Maybe Literal)
 instance Show (Status a) where
     show s = "Status :"
            ++ "\n\tvars = "    ++ show (vars_st s)
@@ -27,15 +25,19 @@ instance Show (Status a) where
            ++ "\n\ttobnd = "   ++ show (tobnd_st s)
            ++ "\n\n"
 
-mkStatus :: Int -> CNF -> a -> Chooser a -> Status a
-mkStatus n sat d c = Status
+mkStatus :: Int -> CNF -> a -> Status a
+mkStatus n sat c = Status
     { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
     , sat_st     = sat
     , error_st   = False
     , new_st     = Nothing
     , restart_st = 0
-    , chdata_st  = d
     , chooser_st = c
     , tobnd_st   = []
     }
+
+class Chooser a where
+    ch_choose  :: Status a -> (a, Maybe Literal)
+    ch_conflit :: Status a -> Clause -> a
+    ch_init    :: Status a -> a
 

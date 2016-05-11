@@ -1,6 +1,6 @@
 -- vim:set foldmethod=marker:
 
-module SAT.Solver (defChooser,solveGen,solve) where
+module SAT.Solver (solve) where
 import Data.Array (Array,(!),(//)
                    ,Ix,range,index,inRange)
 import qualified Data.Array as A
@@ -23,8 +23,8 @@ instance Monad (MdSt a) where
                                    let MdSt g = b x in g ns)
     return = pure
 
-runMdSt :: Int -> CNF -> a -> Chooser a -> MdSt a b -> b
-runMdSt n sat d c (MdSt m) = snd $ m $ mkStatus n sat d c
+runMdSt :: Int -> CNF -> a -> MdSt a b -> b
+runMdSt n sat c (MdSt m) = snd $ m $ mkStatus n sat c
 
 -- }}}
 
@@ -39,8 +39,11 @@ neg (L l) = L $ -l
 sgn :: Literal -> Bool
 sgn (L l) = if l < 0 then False else True
 
-choose :: MdSt a (Maybe Literal)
-choose = MdSt $ \s -> (chooser_st s) s
+choose :: Chooser a => MdSt a (Maybe Literal)
+choose = MdSt $ \s -> let (a,l) = ch_choose s in (s {chooser_st = a}, l)
+
+init_chooser :: Chooser a => MdSt a ()
+init_chooser = MdSt $ \s -> let a = ch_init s in (s {chooser_st = a}, ())
 
 mult :: Literal -> MBool -> MBool
 mult _     Nothing  = Nothing
@@ -84,9 +87,11 @@ sat_get = MdSt $ \s -> (s,sat_st s)
 sat_set :: CNF -> MdSt a ()
 sat_set sat = MdSt $ \s -> (s {sat_st = sat}, ())
 
-sat_add_clause :: Clause -> MdSt a ()
-sat_add_clause c = MdSt $ \s -> (s {sat_st = c : sat_st s,
-                                    new_st = Just c}
+sat_add_clause :: Chooser a => Clause -> MdSt a ()
+sat_add_clause c = MdSt $ \s -> let na = ch_conflit s c in
+                                (s { sat_st     = c : sat_st s
+                                   , new_st     = Just c
+                                   , chooser_st = na }
                                 , ())
 
 is_new :: Literal -> MdSt a Bool
@@ -225,7 +230,7 @@ two_watch_all = do
 -- The cdcl algorithm, ending on restarts
 -- Returns Nothing if it ended due to a restart, Just True is the problem is
 -- SAT and Just False if UNSAT
-cdcl :: MdSt a (Maybe Bool)
+cdcl :: Chooser a => MdSt a (Maybe Bool)
 cdcl = do e <- is_error
           if e then do derive_clause >>= sat_add_clause
                        return $ Just False
@@ -249,8 +254,9 @@ cdcl = do e <- is_error
                                                cdcl
                                        else return $ Just False
 
-solver :: MdSt a (Maybe (Array Literal Bool))
-solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
+solver :: Chooser a => MdSt a (Maybe (Array Literal Bool))
+solver = do init_chooser
+            r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
             let b = fromJust r
             if b then do v <- MdSt $ \s -> (s,head $ vars_st s)
                          return $ Just $ mapArray fj v
@@ -270,17 +276,6 @@ solver = do r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
 
 -- }}}
 
--- {{{ Main
-defChooser :: Status () -> (Status (), Maybe Literal)
-defChooser s = if f == [] then (s,Nothing) else (s,Just $ head f)
- where f = [i | (i,e) <- A.assocs v, e == Nothing]
-       v = head $ vars_st s
-
-solveGen :: a -> Chooser a -> (Int,CNF) -> Maybe (Array Literal Bool)
-solveGen d c (n,sat) = runMdSt n sat d c $ solver
-
-solve :: (Int,CNF) -> Maybe (Array Literal Bool)
-solve = solveGen () defChooser
-
--- }}}
+solve :: Chooser a => a -> (Int,CNF) -> Maybe (Array Literal Bool)
+solve c (n,sat) = runMdSt n sat c $ solver
 
