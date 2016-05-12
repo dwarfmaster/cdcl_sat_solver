@@ -5,6 +5,12 @@ import Data.Array (Array,(!),(//)
                    ,Ix,range,index,inRange)
 import qualified Data.Array as A
 import Data.Maybe
+import qualified Data.Sequence as S
+import Data.Sequence ((<|), ViewR((:>)))
+import Control.Monad.ST
+import Control.Monad.Loops
+import qualified Data.Array.ST as SA
+import Data.STRef
 
 import SAT.Structures
 import SAT.Status
@@ -145,11 +151,32 @@ clear_tobnd :: MdSt a ()
 clear_tobnd = MdSt $ \s -> (s {tobnd_st = []}, ())
 
 -- Create a clause for the contradiction arising in the parameter clause
--- TODO
+_derive_clause :: Clause -> Status a -> Clause
+_derive_clause c s = runST $ do
+    arr <- SA.newArray (L 1,n) False :: ST s (SA.STArray s Literal Bool)
+    q <- newSTRef S.empty
+    r <- newSTRef []
+    sequence_ $ map (\x -> modifySTRef' q (x <|)) c
+    whileM_ ((fmap (not . null) . readSTRef) q) $ do
+        qr <- readSTRef q
+        let qt:>l = S.viewr qr
+        writeSTRef q qt
+        b <- SA.readArray arr l
+        if b then return ()
+        else do
+            SA.writeArray arr l True
+            let bd = bnd ! l
+            if not (null bd)
+                then sequence_ $ map (\x -> modifySTRef' q (x <|)) bd
+                else modifySTRef' r (\x -> l : x)
+    readSTRef r
+ where sat = sat_st s
+       bnd = head $ bound_st s
+       v   = head $ vars_st s
+       n   = snd $ A.bounds v
+
 derive_clause :: Clause -> MdSt a Clause
-derive_clause c = MdSt $ \s -> (s, [ if fromJust e then i else neg i
-                                   | (i,e) <- A.assocs $ head $ vars_st s
-                                   , e /= Nothing ])
+derive_clause c = MdSt $ \s -> (s, _derive_clause c s)
 
 -- Take the first element of l for which f is true, and put it first
 -- Do nothing if f is always false on l
