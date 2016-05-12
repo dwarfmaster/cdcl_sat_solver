@@ -273,23 +273,36 @@ two_watch_all = do
 -- SAT and Just False if UNSAT
 cdcl :: Chooser a => MdSt a (Maybe Bool)
 cdcl = do e <- is_error
-          if e then do c <- get_error
-                       derive_clause (fromJust c) >>= sat_add_clause
-                       return $ Just False
+          -- If conflict reached, either restart or learn clause and backtrack
+          if e then do dec_restart
+                       b <- should_restart
+                       if b then return Nothing
+                            else do c <- get_error
+                                    dc <- derive_clause (fromJust c)
+                                    sat_add_clause dc
+                                    return $ Just False
+          -- If there is no conflict, choose a variable
           else do ml <- choose
-                  if ml == Nothing then do dec_restart
-                                           b <- should_restart
-                                           return $ if b then Nothing
-                                                         else Just True
+                  -- If all the variables are already bound, the assignement
+                  -- is a solution
+                  if ml == Nothing then return $ Just True
+                  -- On the other case, bound the new variable, propagate and
+                  -- apply recursively
                   else do let l = fromJust ml
                           tobnd_add l []
                           push
                           two_watch_all
                           r <- cdcl
+                          -- Either in restart or satisfied, anyway end the
+                          -- process and return
                           if r /= Just False then do collapse
                                                      return r
                           else do pop
                                   b <- is_new $ fromJust ml
+                                  -- If the backtracking process makes the
+                                  -- learnt clause true, test the other value
+                                  -- for the choosen variable. If not,
+                                  -- backtrack further.
                                   if b then do clear_error >> clear_new
                                                tobnd_add (neg l) []
                                                two_watch_all
@@ -299,6 +312,7 @@ cdcl = do e <- is_error
 solver :: Chooser a => MdSt a (Maybe (Array Literal Bool))
 solver = do init_chooser
             r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
+            -- Restart until either SAT or UNSAT in returned
             let b = fromJust r
             if b then do v <- MdSt $ \s -> (s,head $ vars_st s)
                          return $ Just $ mapArray fj v
