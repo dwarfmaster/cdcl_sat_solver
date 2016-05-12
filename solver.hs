@@ -30,7 +30,9 @@ instance Monad (MdSt a) where
     return = pure
 
 runMdSt :: Int -> CNF -> a -> MdSt a b -> b
-runMdSt n sat c (MdSt m) = snd $ m $ mkStatus n sat c
+runMdSt n sat c (MdSt m) = s `seq` x -- Makes sure the state is executed
+                                     -- /!\ for debug purpose only
+ where (s,x) = m $ mkStatus n sat c
 
 -- }}}
 
@@ -67,9 +69,8 @@ _bind l c = MdSt $ \s -> let h:t = vars_st s in let hb:tb = bound_st s in
 bind :: Literal -> Clause -> MdSt a ()
 bind l c = do s <- status l
               if s == Nothing then _bind l c
-              else if s /= b then launch_error c
+              else if s /= Just True then launch_error c
               else return ()
- where b = Just $ sgn l
 
 push :: MdSt a ()
 push = MdSt $ \s -> let v = vars_st s in let b = bound_st s in
@@ -103,7 +104,7 @@ sat_add_clause c = MdSt $ \s -> let na = ch_conflit s c in
                                 , ())
 
 is_new :: Literal -> MdSt a Bool
-is_new l = MdSt $ \s -> let n = new_st s in if n == Nothing then (s,False)
+is_new l = MdSt $ \s -> let n = new_st s in if n == Nothing then (s,True)
                         -- Equality is tested using the Eq instance, which is
                         -- independant of wether the literal is negated or not
                         else (s, elem l $ fromJust n)
@@ -224,16 +225,12 @@ two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
        else if b == Nothing then tobnd_add h [h]
        else return ()
        return [h]
-two_watch c@(h1:h2:t) =
-    do nc <- do (th:tt) <- raise_on r2 c -- We try to bind the first variable
-                                         -- to true
-                s <- status th
-                if s == Just True then return c
-                else do (nh:nt) <- raise_on r $ c -- We make sure the first
-                                                  -- variable is not bound to
-                                                  -- false
-                        nt2 <- raise_on r nt      -- Idem for the second one
-                        return $ nh : nt2
+two_watch c = -- Here c has at lest two elements
+    do nc <- do (h:t) <- raise_on r $ c -- We make sure the first
+                                          -- variable is not bound to
+                                          -- false
+                t2 <- raise_on r t      -- Idem for the second one
+                return $ h : t2
        let l1:l2:_ = nc
        s1 <- status l1
        s2 <- status l2
@@ -246,8 +243,6 @@ two_watch c@(h1:h2:t) =
        return nc
  where r l = do b <- status l
                 return $ b /= (Just False)
-       r2 l = do b <- status l
-                 return $ b == Just True
 
 -- Apply two-watch simplification to all clauses, bounding all necessary
 -- variables
