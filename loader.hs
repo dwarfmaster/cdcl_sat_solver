@@ -45,7 +45,9 @@ firstChar (c:_) = c
 
 parseLine :: String -> (Int,Clause)
 parseLine s = if c == 'p'      then parseDesc s
-              else if c /= 'c' then parseClause s
+              else if c /= 'c'
+                   && c /= '%'
+                   && c /= '0' then parseClause s
               else                  (0,[])
  where c = firstChar s
 
