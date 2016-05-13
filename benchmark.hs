@@ -20,5 +20,10 @@ test c s = bench s $ nfIO $ run c s
 main = defaultMain
     [ bgroup "SAT () chooser - " $ map (test ()) satisfiables
     , bgroup "UNSAT () chooser - " $ map (test ()) unsatisfiables
+    , bgroup "SAT (VSIDS b=1 i=1 a=.5) chooser - "
+        $ map (test vs) satisfiables
+    , bgroup "UNSAT (VSIDS b=1 i=1 a=.5) chooser - "
+        $ map (test vs) unsatisfiables
     ]
+ where vs = mkVSIDS 1 1 0.5
 
