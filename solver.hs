@@ -308,7 +308,15 @@ cdcl = do e <- is_error
                                   if b then do clear_error >> clear_new
                                                tobnd_add (neg l) []
                                                two_watch_all
-                                               cdcl
+                                               -- Take care to remove new
+                                               -- clause from backtracking
+                                               -- constraint if necessary
+                                               r <- cdcl
+                                               b2 <- is_new l
+                                               if r == Just False && b2
+                                               then clear_new
+                                               else return ()
+                                               return r
                                        else return $ Just False
 
 solver :: Chooser a => MdSt a (Maybe (Array Literal Bool))
