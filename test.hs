@@ -23,11 +23,16 @@ mkTest b c path = TestCase $ mkAssert b c path
 
 tests :: Test
 tests = TestList
-    [ TestLabel "() chooser" $ TestList
-        [ TestLabel "SAT"   $ TestList $ map (mkTest True ())  satisfiables
+    [ TestLabel "VSIDS b=1 i=1 a=0.5 chooser" $ TestList
+        [ TestLabel "SAT"   $ TestList $ map (mkTest True  vs) satisfiables
+        , TestLabel "UNSAT" $ TestList $ map (mkTest False vs) unsatisfiables
+        ]
+    , TestLabel "() chooser" $ TestList
+        [ TestLabel "SAT"   $ TestList $ map (mkTest True  ()) satisfiables
         , TestLabel "UNSAT" $ TestList $ map (mkTest False ()) unsatisfiables
         ]
     ]
+ where vs = mkVSIDS 1 1 0.5
 
 main = runTestTT tests
 
