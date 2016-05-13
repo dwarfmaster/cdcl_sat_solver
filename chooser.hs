@@ -41,14 +41,13 @@ instance Chooser VSIDS where
            v = head $ vars_st s
            vs@(VSIDS a _ _ _ _) = chooser_st s
            get a@(v,_) b@(w,_) = if v < w then b else a
-    -- Init by counting how many clauses contain each variable
-    ch_init s = VSIDS na d b i c
-     where VSIDS a d b i c = chooser_st s
-           sat   = sat_st s
-           bnd   = A.bounds a
-           na    = A.array bnd [(i,fromIntegral $ length (cls i))
-                               | i <- A.range bnd]
-           cls i = [cl | cl <- sat, elemBy cmpL (L i) cl]
+
+    -- Init all to 0
+    ch_init s = VSIDS a d b i c
+     where VSIDS _ d b i c = chooser_st s
+           (L n) = snd $ A.bounds $ head $ vars_st s
+           a     = A.array (-n,n) [(i,0) | i <- A.range (-n,n)]
+
     ch_conflit s cl = VSIDS nna d b i nc
      where VSIDS a d b i c = chooser_st s
            nc  = if c + 1 == i then 0 else c + 1
@@ -60,9 +59,8 @@ instance Chooser VSIDS where
 mkVSIDS :: Int   -- how often to bump
         -> Float -- the bump
         -> Float -- the decay
-        -> Int   -- the number of variables
         -> VSIDS
-mkVSIDS i b d n = VSIDS (A.array (-n,n) [(i,0) | i <- A.range (-n,n)]) d b i 0
+mkVSIDS i b d = VSIDS (A.array (0,0) [(0,0)]) d b i 0
 defVSIDS = mkVSIDS 1 1.0 0.5
 -- }}}
 
