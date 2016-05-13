@@ -12,5 +12,6 @@ main = do args <- getArgs
           if length args /= 1 then die "Usage : [program] path_to_dimacs"
                               else return ()
           ld <- load $ head args
-          putStrLn $ show $ solve () ld
+          putStrLn $ show $ solve vs ld
+ where vs = mkVSIDS 1 1 0.5
 
