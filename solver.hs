@@ -103,6 +103,8 @@ sat_add_clause c = MdSt $ \s -> let na = ch_conflit s c in
                                    , chooser_st = na }
                                 , ())
 
+-- is_new is used to know when backtracking is still needed, so it returns True
+-- when there no new clause to immediately stop the backtracking
 is_new :: Literal -> MdSt a Bool
 is_new l = MdSt $ \s -> let n = new_st s in if n == Nothing then (s,True)
                         -- Equality is tested using the Eq instance, which is
@@ -210,7 +212,7 @@ formap f (h:t) = do c <- f h
 
 while :: MdSt a Bool -> MdSt a () -> MdSt a ()
 while f g = do b <- f
-               if b then do { g; while f g } else return ()
+               if b then g >> while f g else return ()
 
 -- }}}
 
@@ -225,13 +227,13 @@ two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
        else if b == Nothing then tobnd_add h [h]
        else return ()
        return [h]
-two_watch c = -- Here c has at lest two elements
-    do nc <- do (h:t) <- raise_on r $ c -- We make sure the first
-                                          -- variable is not bound to
-                                          -- false
+two_watch c = -- Here c has at least two elements
+    do nc <- do (h:t) <- raise_on r $ c -- We make sure the first variable is
+                                        -- not bound to false
                 t2 <- raise_on r t      -- Idem for the second one
                 return $ h : t2
-       let l1:l2:_ = nc
+       let l1:l2:_ = nc -- Main idea of two_watch : we only check the two first
+                        -- literals of each clause
        s1 <- status l1
        s2 <- status l2
        if s1 == Just False then launch_error c -- Means all variables are bound
@@ -251,9 +253,14 @@ two_watch_all = do
     while test $ do
         tb <- tobnd_get
         let (l,c) = fromJust tb
+        -- We try to bind the next variable which value is fixed
         bind l c
+        -- If it resulted in an error, we abort for the error to be treated
+        -- in cdcl
         e <- is_error
         if e then return ()
+        -- If it could be bound, we launch the propagation through all clauses
+        -- and update the sat representation
         else do cnf <- sat_get
                 ncnf <- formap two_watch cnf
                 sat_set ncnf
@@ -264,7 +271,7 @@ two_watch_all = do
                  return $ not e && tb /= Nothing
 
 -- The cdcl algorithm, ending on restarts
--- Returns Nothing if it ended due to a restart, Just True is the problem is
+-- Returns Nothing if it ended due to a restart, Just True if the problem is
 -- SAT and Just False if UNSAT
 cdcl :: Chooser a => MdSt a (Maybe Bool)
 cdcl = do e <- is_error
@@ -279,7 +286,7 @@ cdcl = do e <- is_error
           -- If there is no conflict, choose a variable
           else do ml <- choose
                   -- If all the variables are already bound, the assignement
-                  -- is a solution
+                  -- is a solution as there is no error
                   if ml == Nothing then return $ Just True
                   -- On the other case, bound the new variable, propagate and
                   -- apply recursively
@@ -293,7 +300,7 @@ cdcl = do e <- is_error
                           if r /= Just False then do collapse
                                                      return r
                           else do pop
-                                  b <- is_new $ fromJust ml
+                                  b <- is_new l
                                   -- If the backtracking process makes the
                                   -- learnt clause true, test the other value
                                   -- for the choosen variable. If not,
