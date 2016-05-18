@@ -230,7 +230,10 @@ two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
 two_watch c = -- Here c has at least two elements
     do nc <- do (h:t) <- raise_on r $ c -- We make sure the first variable is
                                         -- not bound to false
-                t2 <- raise_on r t      -- Idem for the second one
+                s <- status h
+                -- Idem for the second one
+                t2 <- if s == Just True then return t
+                                        else raise_on r t
                 return $ h : t2
        let l1:l2:_ = nc -- Main idea of two_watch : we only check the two first
                         -- literals of each clause
