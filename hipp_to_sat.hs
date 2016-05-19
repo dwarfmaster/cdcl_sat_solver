@@ -1,9 +1,11 @@
 -- vim:set foldmethod=marker:
 
-module HIPP.Sat (population_system) where
+module HIPP.Sat (population_system,extract) where
 import HIPP.Structures
 import SAT.Structures
+import Data.Array
 
+-- {{{ HIPP -> SAT
 population_system
     :: Int       -- number of haplotypes
     -> [Genome]  -- the population (all genomes must have same size)
@@ -79,5 +81,26 @@ h :: (Int,Int,Int) -- number of haplotypes, size of population, size of genome
   -> Literal
 h (r,np,m) k i b = if b then L n else L $ -n
  where n = (k-1)*m + i
+-- }}}
 
+-- {{{ SAT -> HIPP
+extract
+    :: Int -- number of haplotypes
+    -> Int -- number of genomes
+    -> Int -- size of genomes
+    -> Maybe (Array Literal Bool)
+    -> [Haplotype]
+extract _ _  _ Nothing  = []
+extract r np m (Just s) = foldl eh [] [1..r]
+ where eh :: [Haplotype] -> Int -> [Haplotype]
+       eh l i = get (r,np,m) s i : l
+
+get :: (Int,Int,Int) -> Array Literal Bool -> Int -> Haplotype
+get (r,np,m) s i = map bta $ foldl (\l -> \j -> s!(id i j) : l) [] l
+ where id a b = L $ (a-1) * m + b
+       bta True  = AUn
+       bta False = AZero
+       l = reverse [1..m]
+
+-- }}}
 
