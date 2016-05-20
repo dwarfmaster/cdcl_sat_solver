@@ -86,14 +86,15 @@ h (r,np,m) k i b = if b then L n else L $ -n
 -- {{{ SAT -> HIPP
 extract
     :: Int -- number of haplotypes
-    -> Int -- number of genomes
-    -> Int -- size of genomes
+    -> [Genome]
     -> Maybe (Array Literal Bool)
     -> [Haplotype]
-extract _ _  _ Nothing  = []
-extract r np m (Just s) = foldl eh [] [1..r]
+extract _ _ Nothing  = []
+extract r g (Just s) = foldl eh [] [1..r]
  where eh :: [Haplotype] -> Int -> [Haplotype]
        eh l i = get (r,np,m) s i : l
+       np = length g
+       m  = length $ head g
 
 get :: (Int,Int,Int) -> Array Literal Bool -> Int -> Haplotype
 get (r,np,m) s i = map bta $ foldl (\l -> \j -> s!(id i j) : l) [] l
