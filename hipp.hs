@@ -19,10 +19,18 @@ instance Show Gene where
 
 -- {{{ Example
 population :: [Genome]
-population = [ [ Monozygote AZero, Monozygote AUn]
-             , [ Heterozygote,     Monozygote AZero]
-             , [ Monozygote AUn,   Heterozygote]
-             , [ Heterozygote,     Heterozygote]
+population = [ [ Monozygote AZero, Monozygote AZero
+               , Monozygote AZero, Monozygote AUn ]
+             , [ Monozygote AUn,   Monozygote AZero
+               , Monozygote AZero, Monozygote AUn]
+             , [ Monozygote AZero, Monozygote AUn
+               , Monozygote AZero, Monozygote AUn]
+             , [ Heterozygote,     Monozygote AZero
+               , Monozygote AZero, Monozygote AUn]
+             , [ Monozygote AZero, Heterozygote
+               , Monozygote AZero, Monozygote AUn]
+             , [ Heterozygote,     Heterozygote
+               , Monozygote AZero, Monozygote AUn ]
              ]
 -- }}}
 
