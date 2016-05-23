@@ -15,6 +15,8 @@ import Data.STRef
 import SAT.Structures
 import SAT.Status
 
+import Debug.Trace
+
 -- {{{ Data structures
 data MdSt a b = MdSt (Status a -> (Status a,b))
 instance Functor (MdSt a) where
@@ -125,7 +127,7 @@ dec_restart = MdSt $ \s -> let n = restart_st s in
                                      else (s {restart_st = n - 1}, ())
 
 is_error :: MdSt a Bool
-is_error = MdSt $ \s -> (s,not $ (/= CEmpty) $ error_st s)
+is_error = MdSt $ \s -> (s,(/= CEmpty) $ error_st s)
 
 launch_error :: Clause -> MdSt a ()
 launch_error c = MdSt $ \s -> (s {error_st = c}, ())
