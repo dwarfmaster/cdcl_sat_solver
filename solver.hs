@@ -255,7 +255,32 @@ two_watch (OR c) = -- Here c has at least two elements
        return $ OR nc
  where r l = do b <- status l
                 return $ b /= (Just False)
-two_watch (XOR c) = return (XOR c) -- TODO
+two_watch (XOR c) =
+    do (h:t) <- raise_on ist c
+       s <- status h
+       if s == Just True
+       then do (h2:t2) <- raise_on ist t
+               s2 <- status h2
+               if s2 == Just True then do launch_error $ XOR c
+                                          return $ XOR (h:h2:t2)
+               else do mapM_ mp c
+                       return $ XOR (h:h2:t2)
+       else do (h2:t2) <- raise_on isn c
+               s2 <- status h2
+               if s2 == Just False then do launch_error $ XOR c
+                                           return $ XOR (h2:t2)
+               else do (h3:t3) <- raise_on isn t2
+                       s3 <- status h3
+                       if s3 == Nothing then return $ XOR (h2:h3:t3)
+                       else do tobnd_add h2 $ XOR c
+                               return $ XOR (h2:h3:t3)
+ where ist l = do b <- status l
+                  return $ b == Just True
+       isn l = do b <- status l
+                  return $ b == Nothing
+       mp l = do s <- status l
+                 if s == Nothing then tobnd_add (neg l) $ XOR c
+                 else return ()
 
 -- Apply two-watch simplification to all clauses, bounding all necessary
 -- variables
