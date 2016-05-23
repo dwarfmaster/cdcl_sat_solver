@@ -16,14 +16,14 @@ load path = do file <- openFile path ReadMode
                content <- hGetContents file
                let (size,cnf) = parseLines (lines content)
                if size < 0 then throwIO $ CNFE "Invalid DIMACS File"
-                           else return (size,cnf)
+                           else return (size, map OR cnf)
 
-findSize :: CNF -> Int
+findSize :: [[Literal]] -> Int
 findSize cnf = maximum $ map mcl cnf
  where mcl = maximum . (map abl)
        abl (L l) = abs l
 
-parseClause :: String -> (Int,Clause)
+parseClause :: String -> (Int,[Literal])
 parseClause str = (0, filter (\(L l) -> l /= 0) $ map rlit parts)
  where parts = filter (not.null) $ Spl.splitOn " " str
        rlit s = L (read s :: Int)
@@ -33,7 +33,7 @@ parseClause str = (0, filter (\(L l) -> l /= 0) $ map rlit parts)
 (n,[]) *: (n2,l) = if n <= 0 then (n2,l)   else (n,l) 
 (n,h)  *: (n2,l) = if n <= 0 then (n2,h:l) else (n,h:l)
 
-parseDesc :: String -> (Int,Clause)
+parseDesc :: String -> (Int,[Literal])
 parseDesc str = (nb,[])
  where parts = filter (not.null) $ Spl.splitOn " " str
        n = length parts
@@ -43,7 +43,7 @@ firstChar :: String -> Char
 firstChar []    = 'c'
 firstChar (c:_) = c
 
-parseLine :: String -> (Int,Clause)
+parseLine :: String -> (Int,[Literal])
 parseLine s = if c == 'p'      then parseDesc s
               else if c /= 'c'
                    && c /= '%'
@@ -51,6 +51,6 @@ parseLine s = if c == 'p'      then parseDesc s
               else                  (0,[])
  where c = firstChar s
 
-parseLines :: [String] -> (Int,CNF)
+parseLines :: [String] -> (Int,[[Literal]])
 parseLines lines = foldr (*:) (0,[]) $ map parseLine lines
 

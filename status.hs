@@ -11,9 +11,9 @@ data Status a = Status
     , bound_st   :: [Array Literal Clause] -- Remember which clause bound
                                            -- the variable
     , sat_st     :: CNF
-    , error_st   :: Maybe Clause -- Nothing if no contradiction, else the
-                                 -- clause source of the contradiction
-    , new_st     :: Maybe Clause -- Last learnt clause, for bactracking
+    , error_st   :: Clause -- CEmpty if no contradiction, else the clause
+                           -- source of the contradiction
+    , new_st     :: Clause -- Last learnt clause, for bactracking
     , restart_st :: Int -- Number of tries before restart
     , chooser_st :: a -- Data for the function choosing the new variable to set
     , tobnd_st   :: [(Literal,Clause)] -- Literals that must be bound
@@ -32,10 +32,10 @@ instance Show (Status a) where
 mkStatus :: Int -> CNF -> a -> Status a
 mkStatus n sat c = Status
     { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
-    , bound_st   = A.array (L 1,L n) [(L i,[]) | i <- range (1,n)] : []
+    , bound_st   = A.array (L 1,L n) [(L i,CEmpty) | i <- range (1,n)] : []
     , sat_st     = sat
-    , error_st   = Nothing
-    , new_st     = Nothing
+    , error_st   = CEmpty
+    , new_st     = CEmpty
     , restart_st = 0
     , chooser_st = c
     , tobnd_st   = []

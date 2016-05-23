@@ -19,8 +19,8 @@ population_system r p = foldl (genome_system r n m) (ds,mx) $ zip p [1..]
 -- For each genome parent, at lest an haplotype must be selected
 at_least :: Int -> Int -> Int -> CNF
 at_least r n m = foldl bd [] [1..n]
- where bd st i = [s_a (r,n,m) k i True | k <- [1..r]]
-               : [s_b (r,n,m) k i True | k <- [1..r]]
+ where bd st i = XOR [s_a (r,n,m) k i True | k <- [1..r]]
+               : XOR [s_b (r,n,m) k i True | k <- [1..r]]
                : st
 
 genome_system
@@ -40,24 +40,24 @@ gene_system :: Int -> Int -> Int
             -> (CNF,Int)
 gene_system r np m j (sat,n) (Monozygote AZero,i) =
     (foldl bd sat [1..r], n)
- where bd st k = [h (r,np,m) k i False, s_a (r,np,m) k j False]
-               : [h (r,np,m) k i False, s_b (r,np,m) k j False]
+ where bd st k = OR [h (r,np,m) k i False, s_a (r,np,m) k j False]
+               : OR [h (r,np,m) k i False, s_b (r,np,m) k j False]
                : st
 gene_system r np m j (sat,n) (Monozygote AUn,i)   =
     (foldl bd sat [1..r], n)
- where bd st k = [h (r,np,m) k i True, s_a (r,np,m) k j False]
-               : [h (r,np,m) k i True, s_b (r,np,m) k j False]
+ where bd st k = OR [h (r,np,m) k i True, s_a (r,np,m) k j False]
+               : OR [h (r,np,m) k i True, s_b (r,np,m) k j False]
                : st
 gene_system r np m j (sat,n) (Heterozygote,i)     =
-    ([g1,g2] : [ng1,ng2] : foldl bd sat [1..r], n+2)
+    (XOR [g1,g2] : foldl bd sat [1..r], n+2)
  where g1  = L $ n + 1
        ng1 = L $ - (n + 1)
        g2  = L $ n + 2
        ng2 = L $ - (n + 2)
-       bd st k = [h (r,np,m) k i True,  s_a (r,np,m) k j False, g1]
-               : [h (r,np,m) k i False, s_a (r,np,m) k j False, ng1]
-               : [h (r,np,m) k i True,  s_b (r,np,m) k j False, g2]
-               : [h (r,np,m) k i False, s_b (r,np,m) k j False, ng2]
+       bd st k = OR [h (r,np,m) k i True,  s_a (r,np,m) k j False, g1]
+               : OR [h (r,np,m) k i False, s_a (r,np,m) k j False, ng1]
+               : OR [h (r,np,m) k i True,  s_b (r,np,m) k j False, g2]
+               : OR [h (r,np,m) k i False, s_b (r,np,m) k j False, ng2]
                : st
 
 s :: Bool          -- s_a (True) or s_b (False)

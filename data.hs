@@ -1,6 +1,6 @@
 -- vim:set foldmethod=marker:
 
-module SAT.Structures (Literal(L),Clause,CNF) where
+module SAT.Structures (Literal(L),Clause(OR,XOR,CEmpty),CNF) where
 import Data.Array (Ix,range,index,inRange)
 
 data Literal = L Int
@@ -15,6 +15,11 @@ instance Ix Literal where
 instance Show Literal where
     show (L a) = "L " ++ show a
 
-type Clause = [Literal]
+data Clause = OR [Literal] | XOR [Literal] | CEmpty
+    deriving (Eq)
+instance Show Clause where
+    show (OR l)  = "OR  " ++ show l
+    show (XOR l) = "XOR " ++ show l
+    show CEmpty  = "[empty clause]"
 type CNF = [Clause]
 

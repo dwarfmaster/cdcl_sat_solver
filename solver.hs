@@ -99,20 +99,20 @@ sat_set sat = MdSt $ \s -> (s {sat_st = sat}, ())
 sat_add_clause :: Chooser a => Clause -> MdSt a ()
 sat_add_clause c = MdSt $ \s -> let na = ch_conflit s c in
                                 (s { sat_st     = c : sat_st s
-                                   , new_st     = Just c
+                                   , new_st     = c
                                    , chooser_st = na }
                                 , ())
 
 -- is_new is used to know when backtracking is still needed, so it returns True
 -- when there no new clause to immediately stop the backtracking
 is_new :: Literal -> MdSt a Bool
-is_new l = MdSt $ \s -> let n = new_st s in if n == Nothing then (s,True)
+is_new l = MdSt $ \s -> let n = new_st s in if not (isOR n) then (s,True)
                         -- Equality is tested using the Eq instance, which is
                         -- independant of wether the literal is negated or not
-                        else (s, elem l $ fromJust n)
+                        else let (OR n2) = n in (s, elem l n2)
 
 clear_new :: MdSt a ()
-clear_new = MdSt $ \s -> (s {new_st = Nothing}, ())
+clear_new = MdSt $ \s -> (s {new_st = CEmpty}, ())
 
 -- Test if restart is necessary
 should_restart :: MdSt a Bool
@@ -125,15 +125,15 @@ dec_restart = MdSt $ \s -> let n = restart_st s in
                                      else (s {restart_st = n - 1}, ())
 
 is_error :: MdSt a Bool
-is_error = MdSt $ \s -> (s,not $ isNothing $ error_st s)
+is_error = MdSt $ \s -> (s,not $ (/= CEmpty) $ error_st s)
 
 launch_error :: Clause -> MdSt a ()
-launch_error c = MdSt $ \s -> (s {error_st = Just c}, ())
+launch_error c = MdSt $ \s -> (s {error_st = c}, ())
 
 clear_error :: MdSt a ()
-clear_error = MdSt $ \s -> (s {error_st = Nothing}, ())
+clear_error = MdSt $ \s -> (s {error_st = CEmpty}, ())
 
-get_error :: MdSt a (Maybe Clause)
+get_error :: MdSt a (Clause)
 get_error = MdSt $ \s -> (s, error_st s)
 
 -- Return and remove a literal to bound
@@ -153,9 +153,13 @@ tobnd_add h c = MdSt $ \s -> (s {tobnd_st = (h,c) : tobnd_st s}, ())
 clear_tobnd :: MdSt a ()
 clear_tobnd = MdSt $ \s -> (s {tobnd_st = []}, ())
 
+isOR :: Clause -> Bool
+isOR (OR _) = True
+isOR _      = False
+
 -- Create a clause for the contradiction arising in the parameter clause
 _derive_clause :: Clause -> Status a -> Clause
-_derive_clause c s = runST $ do
+_derive_clause (OR c) s = runST $ do
     arr <- SA.newArray (L 1,n) False :: ST s (SA.STArray s Literal Bool)
     q <- newSTRef S.empty
     r <- newSTRef []
@@ -169,14 +173,17 @@ _derive_clause c s = runST $ do
         else do
             SA.writeArray arr l True
             let bd = bnd ! l
-            if not (null bd)
-                then sequence_ $ map (\x -> modifySTRef' q (x <|)) bd
+            if isOR bd
+                then let (OR b) = bd in
+                     sequence_ $ map (\x -> modifySTRef' q (x <|)) b
                 else modifySTRef' r (\x -> l : x)
-    readSTRef r
+    rc <- readSTRef r
+    return $ OR rc
  where sat = sat_st s
        bnd = head $ bound_st s
        v   = head $ vars_st s
        n   = snd $ A.bounds v
+_derive_clause _ _ = CEmpty
 
 derive_clause :: Clause -> MdSt a Clause
 derive_clause c = MdSt $ \s -> (s, _derive_clause c s)
@@ -219,15 +226,15 @@ while f g = do b <- f
 -- {{{ CDCL
 -- Apply two-watch simplification to a clause
 two_watch :: Clause -> MdSt a Clause
-two_watch []     = return []
-two_watch (h:[]) = -- Shouldn't happen, as a preprocessor should have
+two_watch CEmpty      = return CEmpty
+two_watch (OR (h:[])) = -- Shouldn't happen, as a preprocessor should have
                    -- simplified singles clauses
     do b <- status h
-       if b == Just False then launch_error [h]
-       else if b == Nothing then tobnd_add h [h]
+       if b == Just False then launch_error $ OR [h]
+       else if b == Nothing then tobnd_add h $ OR [h]
        else return ()
-       return [h]
-two_watch c = -- Here c has at least two elements
+       return $ OR [h]
+two_watch (OR c) = -- Here c has at least two elements
     do nc <- do (h:t) <- raise_on r $ c -- We make sure the first variable is
                                         -- not bound to false
                 s <- status h
@@ -239,15 +246,16 @@ two_watch c = -- Here c has at least two elements
                         -- literals of each clause
        s1 <- status l1
        s2 <- status l2
-       if s1 == Just False then launch_error c -- Means all variables are bound
-                                               -- to false
+       if s1 == Just False then launch_error $ OR c -- Means all variables are
+                                                    -- bound to false
        -- Means all variables are bound to false except the first one, which
        -- is not bound and thus must be
-       else if s2 == Just False && s1 == Nothing then tobnd_add l1 c
+       else if s2 == Just False && s1 == Nothing then tobnd_add l1 (OR c)
        else return ()
-       return nc
+       return $ OR nc
  where r l = do b <- status l
                 return $ b /= (Just False)
+two_watch (XOR c) = return (XOR c) -- TODO
 
 -- Apply two-watch simplification to all clauses, bounding all necessary
 -- variables
@@ -282,9 +290,9 @@ cdcl = do e <- is_error
           if e then do dec_restart
                        b <- should_restart
                        if b then return Nothing
-                            else do c <- get_error
-                                    dc <- derive_clause (fromJust c)
-                                    sat_add_clause dc
+                            else do dc <- get_error >>= derive_clause
+                                    if isOR dc then sat_add_clause dc
+                                               else return ()
                                     return $ Just False
           -- If there is no conflict, choose a variable
           else do ml <- choose
@@ -294,7 +302,7 @@ cdcl = do e <- is_error
                   -- On the other case, bound the new variable, propagate and
                   -- apply recursively
                   else do let l = fromJust ml
-                          tobnd_add l []
+                          tobnd_add l CEmpty
                           push
                           two_watch_all
                           r <- cdcl
@@ -309,7 +317,7 @@ cdcl = do e <- is_error
                                   -- for the choosen variable. If not,
                                   -- backtrack further.
                                   if b then do clear_error >> clear_new
-                                               tobnd_add (neg l) []
+                                               tobnd_add (neg l) CEmpty
                                                two_watch_all
                                                -- Take care to remove new
                                                -- clause from backtracking

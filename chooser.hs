@@ -39,13 +39,14 @@ instance Chooser VSIDS where
            n = snd $ A.bounds $ head $ vars_st s
            a = A.array (L 1,n) [(i,0) | i <- A.range (L 1,n)]
 
-    ch_conflit s cl = VSIDS nna d b i nc
+    ch_conflit s (OR cl) = VSIDS nna d b i nc
      where VSIDS a d b i c = chooser_st s
            nc  = if c + 1 == i then 0 else c + 1
            na_ = a // [(i,a!i + b) | i <- A.range (A.bounds a)
                                    , elem i cl]
            na  = if nc == 0 then na_ else a
            nna = a // [(i,a!i * d) | i <- A.range (A.bounds a)]
+    ch_conflit s _ = chooser_st s
 
 mkVSIDS :: Int   -- how often to bump
         -> Float -- the bump
