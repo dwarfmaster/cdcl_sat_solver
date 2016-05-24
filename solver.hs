@@ -230,7 +230,7 @@ while f g = do b <- f
 two_watch :: Clause -> MdSt a Clause
 two_watch CEmpty      = return CEmpty
 two_watch (OR (h:[])) = -- Shouldn't happen, as a preprocessor should have
-                   -- simplified singles clauses
+                        -- simplified singles clauses
     do b <- status h
        if b == Just False then launch_error $ OR [h]
        else if b == Nothing then tobnd_add h $ OR [h]
@@ -257,6 +257,12 @@ two_watch (OR c) = -- Here c has at least two elements
        return $ OR nc
  where r l = do b <- status l
                 return $ b /= (Just False)
+two_watch (XOR (h:[])) =
+    do b <- status h
+       if b == Just False then launch_error $ XOR [h]
+       else if b == Nothing then tobnd_add h $ XOR [h]
+       else return ()
+       return $ XOR [h]
 two_watch (XOR c) =
     do (h:t) <- raise_on ist c
        s <- status h
