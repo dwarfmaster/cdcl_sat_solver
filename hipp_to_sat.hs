@@ -92,7 +92,7 @@ extract
     -> ([Haplotype], [(Int,Int)]) -- The haplotypes used for each genome
 extract _ _ Nothing  = ([], [])
 extract r g (Just s) = ( foldl eh [] (reverse [1..r])
-                       , foldl fh [] (reverse [1..r]))
+                       , foldl fh [] (reverse [1..np]))
  where eh :: [Haplotype] -> Int -> [Haplotype]
        eh l i = get (r,np,m) s i : l
        np = length g
