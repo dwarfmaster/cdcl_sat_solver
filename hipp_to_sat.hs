@@ -9,12 +9,13 @@ import Data.Array
 population_system
     :: Int       -- number of haplotypes
     -> [Genome]  -- the population (all genomes must have same size)
-    -> (CNF,Int) -- the SAT instance with number of variables
-population_system r p = foldl (genome_system r n m) (ds,mx) $ zip p [1..]
+    -> (Int,CNF) -- the SAT instance with number of variables
+population_system r p = swp $ foldl (genome_system r n m) (ds,mx) $ zip p [1..]
  where m  = length $ head p
        n  = length p
        mx = 2 * r * n + r * m
        ds = at_least r n m
+       swp (a,b) = (b,a)
 
 -- For each genome parent, exactly one haplotype must be selected
 at_least :: Int -> Int -> Int -> CNF
