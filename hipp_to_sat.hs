@@ -16,7 +16,7 @@ population_system r p = foldl (genome_system r n m) (ds,mx) $ zip p [1..]
        mx = 2 * r * n + r * m
        ds = at_least r n m
 
--- For each genome parent, at lest an haplotype must be selected
+-- For each genome parent, exactly one haplotype must be selected
 at_least :: Int -> Int -> Int -> CNF
 at_least r n m = foldl bd [] [1..n]
  where bd st i = XOR [s_a (r,n,m) k i True | k <- [1..r]]
@@ -88,20 +88,29 @@ extract
     :: Int -- number of haplotypes
     -> [Genome]
     -> Maybe (Array Literal Bool)
-    -> [Haplotype]
-extract _ _ Nothing  = []
-extract r g (Just s) = foldl eh [] [1..r]
+    -> ([Haplotype], [(Int,Int)]) -- The haplotypes used for each genome
+extract _ _ Nothing  = ([], [])
+extract r g (Just s) = ( foldl eh [] (reverse [1..r])
+                       , foldl fh [] (reverse [1..r]))
  where eh :: [Haplotype] -> Int -> [Haplotype]
        eh l i = get (r,np,m) s i : l
        np = length g
        m  = length $ head g
+       fh :: [(Int,Int)] -> Int -> [(Int,Int)]
+       fh l i = getP (r,np,m) s i : l
 
 get :: (Int,Int,Int) -> Array Literal Bool -> Int -> Haplotype
 get (r,np,m) s i = map bta $ foldl (\l -> \j -> s!(id i j) : l) [] l
- where id a b = L $ (a-1) * m + b
+ where id a b = h (r,np,m) a b True
        bta True  = AUn
        bta False = AZero
-       l = reverse [1..m]
+       l = reverse [1..m] 
+
+getP :: (Int,Int,Int) -> Array Literal Bool -> Int -> (Int,Int)
+getP (r,np,m) sol i = (getSa 1, getSb 1)
+ where d b j = s b (r,np,m) j i True
+       getSa j = if sol!(d True j)  then j else getSa (j+1)
+       getSb j = if sol!(d False j) then j else getSb (j+1)
 
 -- }}}
 

@@ -32,6 +32,12 @@ population = [ [ Monozygote AZero, Monozygote AZero
              , [ Heterozygote,     Heterozygote
                , Monozygote AZero, Monozygote AUn ]
              ]
+
+poptest :: [Genome]
+poptest = [ [ Monozygote AZero, Monozygote AUn ]
+          , [ Monozygote AUn,   Heterozygote   ]
+          , [ Heterozygote,     Monozygote AUn ]
+          ]
 -- }}}
 
 -- TODO loader
