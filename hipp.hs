@@ -1,7 +1,7 @@
 -- vim:set foldmethod=marker:
 
 module HIPP.Structures (Allele (AZero,AUn), Gene (Monozygote,Heterozygote),
-                        Haplotype, Genome, hload)
+                        Haplotype, Genome, hload, populations)
                         where
 import System.FilePath
 import System.IO
@@ -22,27 +22,12 @@ instance Show Gene where
     show Heterozygote   = "G2"
 -- }}}
 
--- {{{ Example
-population :: [Genome]
-population = [ [ Monozygote AZero, Monozygote AZero
-               , Monozygote AZero, Monozygote AUn ]
-             , [ Monozygote AUn,   Monozygote AZero
-               , Monozygote AZero, Monozygote AUn]
-             , [ Monozygote AZero, Monozygote AUn
-               , Monozygote AZero, Monozygote AUn]
-             , [ Heterozygote,     Monozygote AZero
-               , Monozygote AZero, Monozygote AUn]
-             , [ Monozygote AZero, Heterozygote
-               , Monozygote AZero, Monozygote AUn]
-             , [ Heterozygote,     Heterozygote
-               , Monozygote AZero, Monozygote AUn ]
-             ]
-
-poptest :: [Genome]
-poptest = [ [ Monozygote AZero, Monozygote AUn ]
-          , [ Monozygote AUn,   Heterozygote   ]
-          , [ Heterozygote,     Monozygote AUn ]
-          ]
+-- {{{ Data
+populations = [ "hipp/gen" ++ f (show i) | i <- [1..100]]
+ where f s = let l = length s in
+             if l == 1 then "00" ++ s
+             else if l == 2 then "0" ++ s
+             else s
 -- }}}
 
 -- {{{ Loader
