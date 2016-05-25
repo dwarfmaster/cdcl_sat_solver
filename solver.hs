@@ -142,15 +142,11 @@ get_error :: MdSt a (Clause)
 get_error = MdSt $ \s -> (s, error_st s)
 
 -- Return and remove a literal to bound
-tobnd_get :: MdSt a (Maybe (Literal,Clause,Literal))
-tobnd_get = MdSt $ \s -> case tobnd_st s of
-                         []  -> (s, Nothing)
-                         h:t -> (s {tobnd_st = t}, Just h)
+tobnd_get :: MdSt a [(Literal,Clause,Literal)]
+tobnd_get = MdSt $ \s -> (s {tobnd_st = []}, tobnd_st s)
 
-tobnd_peek :: MdSt a (Maybe (Literal,Clause,Literal))
-tobnd_peek = MdSt $ \s -> (s, case tobnd_st s of
-                              []  -> Nothing
-                              h:_ -> Just h)
+tobnd_peek :: MdSt a [(Literal,Clause,Literal)]
+tobnd_peek = MdSt $ \s -> (s, tobnd_st s) 
 
 tobnd_add :: Literal -> Clause -> Literal -> MdSt a ()
 tobnd_add h c lv = MdSt $ \s -> (s {tobnd_st = (h,c,lv) : tobnd_st s}, ())
@@ -295,13 +291,12 @@ two_watch lv (XOR c) =
 
 -- Apply two-watch simplification to all clauses, bounding all necessary
 -- variables
-two_watch_all :: MdSt a ()
-two_watch_all = do
+two_watch_all :: Literal -> MdSt a ()
+two_watch_all lv = do
     while test $ do
         tb <- tobnd_get
-        let (l,c,lv) = fromJust tb
-        -- We try to bind the next variable which value is fixed
-        bind l c lv
+        -- We try to bind the nexts variables whose value is fixed
+        mapM_ (\(l,c,lv) -> bind l c lv) tb
         -- If it resulted in an error, we abort for the error to be treated
         -- in cdcl
         e <- is_error
@@ -315,7 +310,7 @@ two_watch_all = do
     clear_tobnd
  where test = do e  <- is_error
                  tb <- tobnd_peek
-                 return $ not e && tb /= Nothing
+                 return $ not e && tb /= []
 
 -- The cdcl algorithm, ending on restarts
 -- Returns Nothing if it ended due to a restart, Just True if the problem is
@@ -340,7 +335,7 @@ cdcl = do e <- is_error
                   else do let l = fromJust ml
                           tobnd_add l CEmpty l
                           push
-                          two_watch_all
+                          two_watch_all l
                           r <- cdcl
                           -- Either in restart or satisfied, anyway end the
                           -- process and return
@@ -354,7 +349,7 @@ cdcl = do e <- is_error
                                   -- backtrack further.
                                   if b then do clear_error >> clear_new
                                                tobnd_add (neg l) CEmpty l
-                                               two_watch_all
+                                               two_watch_all l
                                                -- Take care to remove new
                                                -- clause from backtracking
                                                -- constraint if necessary
