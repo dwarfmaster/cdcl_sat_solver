@@ -1,7 +1,5 @@
 *.hi
 *.o
-main
-benchmark
-test
+*.prog
 cnf/
 

@@ -12,16 +12,26 @@ HIPP=hipp_to_sat.hs \
 	 hipp_solver.hs \
 	 hipp.hs
 
+MAINP=main.prog
+TESTP=test.prog
+BENP=bench.prog
+
 all: main bench tests
 
-main: $(FILES) $(MAIN)
-	ghc $^
+main: $(MAINP)
+	
+$(MAINP): $(FILES) $(MAIN)
+	ghc $^ -o $(MAINP)
 
-bench: $(FILES) $(BENCH)
-	ghc $^
+bench: $(BENP)
+	
+$(BENP): $(FILES) $(BENCH)
+	ghc $^ -o $(BENP)
 
-tests: $(FILES) $(TESTS)
-	ghc $^
+tests: $(TESTP)
+	
+$(TESTP): $(FILES) $(TESTS)
+	ghc $^ -o $(TESTP)
 
 .PHONY:all main bench tests
 
