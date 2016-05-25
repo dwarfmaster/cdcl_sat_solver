@@ -8,6 +8,9 @@ BENCH=problems.hs  \
 	  benchmark.hs
 TESTS=problems.hs \
 	  test.hs
+HIPP=hipp_to_sat.hs \
+	 hipp_solver.hs \
+	 hipp.hs
 
 all: main bench tests
 
