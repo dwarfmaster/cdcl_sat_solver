@@ -8,8 +8,8 @@ import SAT.Structures
 type MBool = Maybe Bool
 data Status a = Status
     { vars_st    :: [Array Literal MBool]
-    , bound_st   :: [Array Literal Clause] -- Remember which clause bound
-                                           -- the variable
+    , bound_st   :: Array Literal Clause -- Remember which clause bound the
+                                         -- variable
     , level_st   :: Array Literal Literal -- Remember the level (literal
                                           -- decision) which caused the
                                           -- variable to be bound
@@ -36,7 +36,7 @@ instance Show (Status a) where
 mkStatus :: Int -> CNF -> a -> Status a
 mkStatus n sat c = Status
     { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
-    , bound_st   = A.array (L 1,L n) [(L i,CEmpty) | i <- range (1,n)] : []
+    , bound_st   = A.array (L 1,L n) [(L i,CEmpty) | i <- range (1,n)]
     , level_st   = A.array (L 1,L n) [(L i,L 0) | i <- range (1,n)]
     , sat_st     = sat
     , error_st   = CEmpty

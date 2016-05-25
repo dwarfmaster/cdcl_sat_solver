@@ -61,10 +61,10 @@ status :: Literal -> MdSt a MBool
 status l = MdSt $ \s -> (s,mult l $ (head $ vars_st s) ! l)
 
 _bind :: Literal -> Clause -> Literal -> MdSt a ()
-_bind l c lv = MdSt $ \s -> let h:t = vars_st s in let hb:tb = bound_st s in
+_bind l c lv = MdSt $ \s -> let h:t = vars_st s in let b = bound_st s in
                             let ls = level_st s in
                             (s {vars_st = h // [(l,Just $ sgn l)] : t
-                               ,bound_st = hb // [(l,c)] : tb
+                               ,bound_st = b // [(l,c)]
                                ,level_st = ls // [(l,lv)]}
                             , ())
 
@@ -75,17 +75,14 @@ bind l c lv = do s <- status l
                  else return ()
 
 push :: MdSt a ()
-push = MdSt $ \s -> let v = vars_st s in let b = bound_st s in
-                    (s {vars_st = head v : v, bound_st = head b : b}, ())
+push = MdSt $ \s -> let v = vars_st s in (s {vars_st = head v : v}, ())
 
 pop :: MdSt a ()
-pop = MdSt $ \s -> let v = vars_st s in let b = bound_st s in
-                   (s {vars_st = tail v, bound_st = tail b}, ())
+pop = MdSt $ \s -> let v = vars_st s in (s {vars_st = tail v}, ())
 
 -- Can only be called if vars_st s has at least two elements
 collapse :: MdSt a ()
-collapse = MdSt $ \s -> let h1:h2:t = vars_st s in let b1:b2:bt = bound_st s in
-                        (s {vars_st = h1:t, bound_st = b1:bt}, ())
+collapse = MdSt $ \s -> let h1:h2:t = vars_st s in (s {vars_st = h1:t}, ())
 
 clear_vars :: MdSt a ()
 clear_vars = MdSt $ \s -> let b = A.bounds $ head $ vars_st s in
@@ -188,7 +185,7 @@ _derive_clause (OR c) s = runST $ do
     rc <- readSTRef r
     return $ OR rc
  where sat = sat_st s
-       bnd = head $ bound_st s
+       bnd = bound_st s
        v   = head $ vars_st s
        n   = snd $ A.bounds v
 _derive_clause _ _ = CEmpty
