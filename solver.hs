@@ -109,7 +109,7 @@ stop_back lv = do n <- new
                   if not (isOR n) then return True
                   else do let (OR n2) = n
                           r <- mapM nf n2
-                          return $ foldl (&&) True r
+                          return $ foldl (||) False r
  where new = MdSt $ \s -> (s,new_st s)
        nf l = do llv <- level l
                  -- Equality independant of sign
