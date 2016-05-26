@@ -3,7 +3,8 @@
 module HIPP.Sat (population_system,extract) where
 import HIPP.Structures
 import SAT.Structures
-import Data.Array
+import Data.Vector ((!))
+import qualified Data.Vector as V
 
 -- {{{ HIPP -> SAT
 population_system
@@ -88,7 +89,7 @@ h (r,np,m) k i b = if b then L n else L $ -n
 extract
     :: Int -- number of haplotypes
     -> [Genome]
-    -> Maybe (Array Literal Bool)
+    -> Maybe (V.Vector Bool)
     -> ([Haplotype], [(Int,Int)]) -- The haplotypes used for each genome
 extract _ _ Nothing  = ([], [])
 extract r g (Just s) = ( foldl eh [] (reverse [1..r])
@@ -100,18 +101,21 @@ extract r g (Just s) = ( foldl eh [] (reverse [1..r])
        fh :: [(Int,Int)] -> Int -> [(Int,Int)]
        fh l i = getP (r,np,m) s i : l
 
-get :: (Int,Int,Int) -> Array Literal Bool -> Int -> Haplotype
-get (r,np,m) s i = map bta $ foldl (\l -> \j -> s!(id i j) : l) [] l
+ext :: Literal -> Int
+ext (L i) = abs i
+
+get :: (Int,Int,Int) -> V.Vector Bool -> Int -> Haplotype
+get (r,np,m) s i = map bta $ foldl (\l -> \j -> s!(ext $ id i j) : l) [] l
  where id a b = h (r,np,m) a b True
        bta True  = AUn
        bta False = AZero
        l = reverse [1..m] 
 
-getP :: (Int,Int,Int) -> Array Literal Bool -> Int -> (Int,Int)
+getP :: (Int,Int,Int) -> V.Vector Bool -> Int -> (Int,Int)
 getP (r,np,m) sol i = (getSa 1, getSb 1)
  where d b j = s b (r,np,m) j i True
-       getSa j = if sol!(d True j)  then j else getSa (j+1)
-       getSb j = if sol!(d False j) then j else getSb (j+1)
+       getSa j = if sol!(ext $ d True j)  then j else getSa (j+1)
+       getSb j = if sol!(ext $ d False j) then j else getSb (j+1)
 
 -- }}}
 

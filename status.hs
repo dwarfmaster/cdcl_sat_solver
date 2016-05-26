@@ -1,18 +1,15 @@
 -- vim:set foldmethod=marker:
 
 module SAT.Status where
-import Data.Array (Array,range)
-import qualified Data.Array as A
+import qualified Data.Vector as V
 import SAT.Structures
 
 type MBool = Maybe Bool
 data Status a = Status
-    { vars_st    :: [Array Literal MBool]
-    , bound_st   :: Array Literal Clause -- Remember which clause bound the
-                                         -- variable
-    , level_st   :: Array Literal Literal -- Remember the level (literal
-                                          -- decision) which caused the
-                                          -- variable to be bound
+    { vars_st    :: [V.Vector MBool]
+    , bound_st   :: V.Vector Clause -- Remember which clause bound the variable
+    , level_st   :: V.Vector Literal -- Remember the level (literal decision)
+                                     -- which caused the variable to be bound
     , sat_st     :: CNF
     , error_st   :: Clause -- CEmpty if no contradiction, else the clause
                            -- source of the contradiction
@@ -35,9 +32,9 @@ instance Show (Status a) where
 
 mkStatus :: Int -> CNF -> a -> Status a
 mkStatus n sat c = Status
-    { vars_st    = A.array (L 1,L n) [(L i,Nothing) | i <- range (1,n)] : []
-    , bound_st   = A.array (L 1,L n) [(L i,CEmpty) | i <- range (1,n)]
-    , level_st   = A.array (L 1,L n) [(L i,L 0) | i <- range (1,n)]
+    { vars_st    = V.fromList [Nothing | i <- [0..n]] : []
+    , bound_st   = V.fromList [CEmpty  | i <- [0..n]]
+    , level_st   = V.fromList [L 0     | i <- [0..n]]
     , sat_st     = sat
     , error_st   = CEmpty
     , new_st     = CEmpty

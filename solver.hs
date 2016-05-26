@@ -1,9 +1,8 @@
 -- vim:set foldmethod=marker:
 
 module SAT.Solver (solve) where
-import Data.Array (Array,(!),(//)
-                   ,Ix,range,index,inRange)
-import qualified Data.Array as A
+import Data.Vector (Vector,(!),(//))
+import qualified Data.Vector as V
 import Data.Maybe
 import qualified Data.Sequence as S
 import Data.Sequence ((<|), ViewR((:>)))
@@ -37,10 +36,6 @@ runMdSt n sat c (MdSt m) = s `seq` x -- Makes sure the state is executed
 -- }}}
 
 -- {{{ Tools
-mapArray :: Ix i => (a -> b) -> Array i a -> Array i b
-mapArray f a = A.array b [(i,f $ a ! i) | i <- range b]
- where b = A.bounds a
-
 neg :: Literal -> Literal
 neg (L l) = L $ -l
 
@@ -58,15 +53,19 @@ mult _     Nothing  = Nothing
 mult (L l) (Just b) = if l < 0 then Just $ not b else Just b
 
 status :: Literal -> MdSt a MBool
-status l = MdSt $ \s -> (s,mult l $ (head $ vars_st s) ! l)
+status l = MdSt $ \s -> (s,mult l $ (head $ vars_st s) ! i)
+ where (L i1) = l
+       i = abs i1
 
 _bind :: Literal -> Clause -> Literal -> MdSt a ()
 _bind l c lv = MdSt $ \s -> let h:t = vars_st s in let b = bound_st s in
                             let ls = level_st s in
-                            (s {vars_st = h // [(l,Just $ sgn l)] : t
-                               ,bound_st = b // [(l,c)]
-                               ,level_st = ls // [(l,lv)]}
+                            (s {vars_st = h // [(i,Just $ sgn l)] : t
+                               ,bound_st = b // [(i,c)]
+                               ,level_st = ls // [(i,lv)]}
                             , ())
+ where (L i1) = l
+       i = abs i1
 
 bind :: Literal -> Clause -> Literal -> MdSt a ()
 bind l c lv = do s <- status l
@@ -85,8 +84,8 @@ collapse :: MdSt a ()
 collapse = MdSt $ \s -> let h1:h2:t = vars_st s in (s {vars_st = h1:t}, ())
 
 clear_vars :: MdSt a ()
-clear_vars = MdSt $ \s -> let b = A.bounds $ head $ vars_st s in
-                    (s {vars_st = A.array b [(i,Nothing) | i <- range b] : []}
+clear_vars = MdSt $ \s -> let n = (V.length $ head $ vars_st s) - 1 in
+                    (s {vars_st = V.fromList [Nothing | i <- [0..n]] : []}
                     , ())
 
 sat_get :: MdSt a CNF
@@ -114,7 +113,7 @@ stop_back lv = do n <- new
        nf l = do llv <- level l
                  -- Equality independant of sign
                  return $ lv == llv
-       level l = MdSt $ \s -> (s,level_st s ! l)
+       level (L i) = MdSt $ \s -> (s,level_st s ! (abs i))
 
 clear_new :: MdSt a ()
 clear_new = MdSt $ \s -> (s {new_st = CEmpty}, ())
@@ -161,7 +160,7 @@ isOR _      = False
 -- Create a clause for the contradiction arising in the parameter clause
 _derive_clause :: Clause -> Status a -> Clause
 _derive_clause (OR c) s = runST $ do
-    arr <- SA.newArray (L 1,n) False :: ST s (SA.STArray s Literal Bool)
+    arr <- SA.newArray (L 1,L n) False :: ST s (SA.STArray s Literal Bool)
     q <- newSTRef S.empty
     r <- newSTRef []
     sequence_ $ map (\x -> modifySTRef' q (x <|)) c
@@ -173,7 +172,7 @@ _derive_clause (OR c) s = runST $ do
         if b then return ()
         else do
             SA.writeArray arr l True
-            let bd = bnd ! l
+            let bd = bnd ! (ext l)
             if isOR bd
                 then let (OR b) = bd in
                      sequence_ $ map (\x -> modifySTRef' q (x <|)) b
@@ -183,7 +182,8 @@ _derive_clause (OR c) s = runST $ do
  where sat = sat_st s
        bnd = bound_st s
        v   = head $ vars_st s
-       n   = snd $ A.bounds v
+       n   = V.length v - 1
+       ext (L l) = abs l
 _derive_clause _ _ = CEmpty
 
 derive_clause :: Clause -> MdSt a Clause
@@ -361,13 +361,13 @@ cdcl = do e <- is_error
                                                return r
                                        else return $ Just False
 
-solver :: Chooser a => MdSt a (Maybe (Array Literal Bool))
+solver :: Chooser a => MdSt a (Maybe (Vector Bool))
 solver = do init_chooser
             r <- tryuntil test (\i -> setre i >> clear >> cdcl) restarts
             -- Restart until either SAT or UNSAT in returned
             let b = fromJust r
             if b then do v <- MdSt $ \s -> (s,head $ vars_st s)
-                         return $ Just $ mapArray fj v
+                         return $ Just $ V.map fj v
                  else return Nothing
  where restarts = [2 ^ i | i <- [8..]]
        luby = [ let k = 1 + (floor $ log2 i) in if i == 2^k - 1 then 2^(k-1)
@@ -384,6 +384,6 @@ solver = do init_chooser
 
 -- }}}
 
-solve :: Chooser a => a -> (Int,CNF) -> Maybe (Array Literal Bool)
+solve :: Chooser a => a -> (Int,CNF) -> Maybe (Vector Bool)
 solve c (n,sat) = runMdSt n sat c $ solver
 
