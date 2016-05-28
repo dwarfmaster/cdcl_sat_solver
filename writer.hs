@@ -13,8 +13,7 @@ writeLiteral :: Literal -> String
 writeLiteral (L i) = show i
 
 writeClause :: Clause -> String
-writeClause (OR c) = "c " ++ foldl (\s -> \l -> s ++ ' ' : writeLiteral l) "" c
-                     ++ "0"
+writeClause (OR c) = foldl (\s -> \l -> s ++ ' ' : writeLiteral l) "" c ++ " 0"
 writeClause (XOR c) = "%" -- indicates error
 
 writeCNF :: (Int,CNF) -> String
