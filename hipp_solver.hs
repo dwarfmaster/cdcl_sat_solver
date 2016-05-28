@@ -25,8 +25,8 @@ minisat_cmd :: String
 minisat_cmd = minisat ++ " -verb=0 " ++ tmpFileIn ++ " " ++ tmpFileOut
 
 readOutLine :: String -> Vector Bool
-readOutLine ln = fromList $ map ((>=0) . read) parts
- where parts = filter (not.null) $ Spl.splitOn " " ln
+readOutLine ln = fromList $ False : map ((>0) . read) parts
+ where parts = filter (\s -> (s /= "0") && (not $ null s)) $ Spl.splitOn " " ln
 
 readOut :: FilePath -> IO (Maybe (Vector Bool))
 readOut path = do
