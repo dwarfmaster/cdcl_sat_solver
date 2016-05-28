@@ -12,7 +12,6 @@ import qualified Data.List.Split as Spl
 import System.FilePath
 import System.IO
 import System.Process
-import Debug.Trace
 
 minisat :: FilePath
 minisat = "minisat/core/minisat_static"
@@ -26,7 +25,7 @@ minisat_cmd :: String
 minisat_cmd = minisat ++ " -verb=0 " ++ tmpFileIn ++ " " ++ tmpFileOut
 
 readOutLine :: String -> Vector Bool
-readOutLine ln = fromList $ traceShowId (map ((>=0) . read) parts)
+readOutLine ln = fromList $ map ((>=0) . read) parts
  where parts = filter (not.null) $ Spl.splitOn " " ln
 
 readOut :: FilePath -> IO (Maybe (Vector Bool))
