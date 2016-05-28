@@ -21,8 +21,8 @@ population_system r p = swp $ foldl (genome_system r n m) (ds,mx) $ zip p [1..]
 -- For each genome parent, exactly one haplotype must be selected
 at_least :: Int -> Int -> Int -> CNF
 at_least r n m = foldl bd [] [1..n]
- where bd st i = XOR [s_a (r,n,m) k i True | k <- [1..r]]
-               : XOR [s_b (r,n,m) k i True | k <- [1..r]]
+ where bd st i = OR [s_a (r,n,m) k i True | k <- [1..r]]
+               : OR [s_b (r,n,m) k i True | k <- [1..r]]
                : st
 
 genome_system
@@ -51,7 +51,7 @@ gene_system r np m j (sat,n) (Monozygote AUn,i)   =
                : OR [h (r,np,m) k i True, s_b (r,np,m) k j False]
                : st
 gene_system r np m j (sat,n) (Heterozygote,i)     =
-    (XOR [g1,g2] : foldl bd sat [1..r], n+2)
+    (OR [g1,g2] : OR [ng1,ng2] : foldl bd sat [1..r], n+2)
  where g1  = L $ n + 1
        ng1 = L $ - (n + 1)
        g2  = L $ n + 2

@@ -11,6 +11,7 @@ TESTS=problems.hs \
 HIPP=hipp_to_sat.hs \
 	 hipp_solver.hs \
 	 hipp.hs        \
+	 writer.hs      \
 	 hipp_main.hs
 
 MAINP=main.prog
