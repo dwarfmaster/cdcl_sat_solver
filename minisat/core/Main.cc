@@ -77,7 +77,7 @@ int main(int argc, char** argv)
 #if defined(__linux__)
         fpu_control_t oldcw, newcw;
         _FPU_GETCW(oldcw); newcw = (oldcw & ~_FPU_EXTENDED) | _FPU_DOUBLE; _FPU_SETCW(newcw);
-        printf("WARNING: for repeatability, setting FPU to use double precision\n");
+        // printf("WARNING: for repeatability, setting FPU to use double precision\n");
 #endif
         // Extra options:
         //
@@ -155,7 +155,7 @@ int main(int argc, char** argv)
                 printf("Solved by unit propagation\n");
                 printStats(S);
                 printf("\n"); }
-            printf("UNSATISFIABLE\n");
+            // printf("UNSATISFIABLE\n"); 
             exit(20);
         }
         
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
         if (S.verbosity > 0){
             printStats(S);
             printf("\n"); }
-        printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
+        // printf(ret == l_True ? "SATISFIABLE\n" : ret == l_False ? "UNSATISFIABLE\n" : "INDETERMINATE\n");
         if (res != NULL){
             if (ret == l_True){
                 fprintf(res, "SAT\n");
@@ -185,8 +185,8 @@ int main(int argc, char** argv)
         return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
 #endif
     } catch (OutOfMemoryException&){
-        printf("===============================================================================\n");
-        printf("INDETERMINATE\n");
+        // printf("===============================================================================\n");
+        // printf("INDETERMINATE\n");
         exit(0);
     }
 }
