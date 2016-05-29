@@ -2,7 +2,6 @@
 
 module HIPP.Sat (population_system,extract) where
 import HIPP.Structures
-import SAT.Structures
 import Data.Vector ((!))
 import qualified Data.Vector as V
 import System.IO

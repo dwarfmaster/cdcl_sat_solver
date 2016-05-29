@@ -3,9 +3,6 @@
 module HIPP.Solver (hsolve) where
 import HIPP.Structures
 import HIPP.Sat
-import SAT.Solver
-import SAT.Choosers
-import SAT.Structures
 import Data.Vector (Vector,fromList)
 import qualified Data.List.Split as Spl
 import System.FilePath
