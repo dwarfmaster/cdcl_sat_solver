@@ -5,7 +5,6 @@ import HIPP.Structures
 import HIPP.Sat
 import SAT.Solver
 import SAT.Choosers
-import SAT.Writer
 import SAT.Structures
 import Data.Vector (Vector,fromList)
 import qualified Data.List.Split as Spl
@@ -17,9 +16,9 @@ minisat :: FilePath
 minisat = "minisat/core/minisat_static"
 
 tmpFileIn :: FilePath
-tmpFileIn = "/tmp/minisat_in"
+tmpFileIn = "/dev/shm/minisat_in"
 tmpFileOut :: FilePath
-tmpFileOut = "/tmp/minisat_out"
+tmpFileOut = "/dev/shm/minisat_out"
 
 minisat_cmd :: String
 minisat_cmd = minisat ++ " -verb=0 " ++ tmpFileIn ++ " " ++ tmpFileOut
@@ -38,18 +37,19 @@ readOut path = do
     hClose f
     return r
 
-minisat_solve :: (Int,CNF) -> IO (Maybe (Vector Bool))
-minisat_solve (n,sat) = do
-    saveCNF tmpFileIn (n,sat)
+minisat_solve :: [Genome] -> Int -> IO (Maybe (Vector Bool))
+minisat_solve g r = do
+    f <- openFile tmpFileIn WriteMode
+    population_system r g f
+    hClose f
     system minisat_cmd
     readOut tmpFileOut
 
 hsolve_r :: [Genome] -> Int -> IO ([Haplotype],[(Int,Int)])
 hsolve_r g r = do
-    sol <- minisat_solve ps
+    sol <- minisat_solve g r
     if sol == Nothing then hsolve_r g (r+1)
     else return $ extract r g sol
- where ps  = population_system r g
 
 hsolve :: [Genome] -> IO ([Haplotype],[(Int,Int)])
 hsolve g = hsolve_r g 1
