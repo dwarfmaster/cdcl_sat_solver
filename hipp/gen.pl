@@ -4,9 +4,9 @@ use strict;
 use warnings;
 
 # Population size
-my $sp = 8;
+my $sp = $ARGV[0];
 # Genome size
-my $gs = 4;
+my $gs = $ARGV[1];
 
 sub randbool {
     my $r = rand();
@@ -20,6 +20,7 @@ sub randbool {
     }
 }
 
+print "s $gs\n";
 for (my $i = 0; $i < $sp; $i++) {
     for (my $j = 0; $j < $gs; $j++) {
         print randbool();
