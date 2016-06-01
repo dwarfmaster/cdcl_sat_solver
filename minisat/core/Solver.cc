@@ -22,6 +22,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include "core/config.h"
 
 using namespace Minisat;
 
@@ -249,17 +250,18 @@ Lit Solver::pickBranchLit()
             next = order_heap.removeMin();
 #else //VSIDS
 #define MAXB (2 * hipp_r * hipp_size_pop)
-    next = hipp_r * hipp_size_gen;
-    while (next < hipp_r * hipp_size_gen + MAXB && value(next) != l_Undef)
+#define BEGB (hipp_r * hipp_size_gen)
+    next = BEGB;
+    while (next < BEGB + MAXB && value(next) != l_Undef)
         ++next;
-    if (next == MAXB) {
+    if (next == BEGB + MAXB) {
         // Select haplotypes values
         next = 0;
-        while (next < hipp_r * hipp_size_gen && value(next) != l_Undef)
+        while (next < BEGB && value(next) != l_Undef)
             ++next;
-        if (next == hipp_r * hipp_size_gen) {
+        if (next == BEGB) {
             // Select last variables, shouldn't happen
-            next = hipp_r * hipp_size_gen + MAXB;
+            next = BEGB + MAXB;
             while(next < nVars() && value(next) != l_Undef)
                 ++next;
             if (next == nVars())
@@ -267,6 +269,7 @@ Lit Solver::pickBranchLit()
         }
     }
 #undef MAXB
+#undef BEGB
 #endif//VSIDS
 
     return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
