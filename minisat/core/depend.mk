@@ -25,7 +25,8 @@
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/ParseUtils.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/SolverTypes.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Map.h \
- /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Alloc.h
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Alloc.h \
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/config.h
 /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Main.o /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Main.or /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Main.od /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Main.op: \
  /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Main.cc \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/System.h \
