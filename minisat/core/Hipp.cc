@@ -51,7 +51,7 @@ Lit Hipp::h(int k, int i, bool b) {
 
 Solver* Hipp::createSolver() {
     int mx = 2*r*size_pop + r*size_gen;
-    Solver* S = new Solver;
+    Solver* S = new Solver(r, size_gen, size_pop);
 
     /* Creating the variables */
     while(S->nVars() < mx)
@@ -118,7 +118,9 @@ std::vector<int> Hipp::extract(Solver* S) {
         
 std::vector<int> Hipp::solve() {
     for(r = 1;; ++r) {
+        fprintf(stdout, "Trying %i haplotypes\n", r);
         Solver* S = createSolver();
+        fprintf(stdout, "System with %i clauses and %i variables.\n", S->nClauses(), S->nVars());
         S->verbosity = 0;
         if(S->simplify()) {
             bool ret = S->solve();

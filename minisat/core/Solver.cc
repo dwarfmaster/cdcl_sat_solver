@@ -48,7 +48,7 @@ static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction o
 // Constructor/Destructor:
 
 
-Solver::Solver() :
+Solver::Solver(int r, int size_gen, int size_pop) :
 
     // Parameters (user settable):
     //
@@ -96,6 +96,11 @@ Solver::Solver() :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
+    
+    // HIPP specifics
+  , hipp_r        (r)
+  , hipp_size_gen (size_gen)
+  , hipp_size_pop (size_pop)
 {}
 
 
@@ -227,18 +232,42 @@ Lit Solver::pickBranchLit()
     Var next = var_Undef;
 
     // Random decision:
+#ifdef RANDOM_DECI
     if (drand(random_seed) < random_var_freq && !order_heap.empty()){
         next = order_heap[irand(random_seed,order_heap.size())];
         if (value(next) == l_Undef && decision[next])
             rnd_decisions++; }
+#endif//RANDOM_DECI
 
     // Activity based decision:
+#ifdef VSIDS
     while (next == var_Undef || value(next) != l_Undef || !decision[next])
         if (order_heap.empty()){
             next = var_Undef;
             break;
         }else
             next = order_heap.removeMin();
+#else //VSIDS
+#define MAXB (2 * hipp_r * hipp_size_pop)
+    next = hipp_r * hipp_size_gen;
+    while (next < hipp_r * hipp_size_gen + MAXB && value(next) != l_Undef)
+        ++next;
+    if (next == MAXB) {
+        // Select haplotypes values
+        next = 0;
+        while (next < hipp_r * hipp_size_gen && value(next) != l_Undef)
+            ++next;
+        if (next == hipp_r * hipp_size_gen) {
+            // Select last variables, shouldn't happen
+            next = hipp_r * hipp_size_gen + MAXB;
+            while(next < nVars() && value(next) != l_Undef)
+                ++next;
+            if (next == nVars())
+                next = var_Undef;
+        }
+    }
+#undef MAXB
+#endif//VSIDS
 
     return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
 }

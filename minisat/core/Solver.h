@@ -38,7 +38,8 @@ public:
 
     // Constructor/Destructor:
     //
-    Solver();
+    Solver() = delete;
+    Solver(int r, int size_gen, int size_pop);
     virtual ~Solver();
 
     // Problem specification:
@@ -139,6 +140,8 @@ public:
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
 protected:
+    // HIPP specifics
+    int hipp_r, hipp_size_gen, hipp_size_pop;
 
     // Helper structures:
     //
