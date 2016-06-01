@@ -799,10 +799,19 @@ lbool Solver::solve_()
 
     // Search:
     int curr_restarts = 0;
+    double restart = -1;
+#ifdef GEOM_RESTART
+#define GEOM_FACTOR 1.5
+    restart = 100;
+#endif
     while (status == l_Undef){
+#ifdef LUBY_RESTART
         double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
-        status = search(rest_base * restart_first);
-        if (!withinBudget()) break;
+        restart = rest_base * restart_first;
+#elif defined GEOM_RESTART
+        restart *= GEOM_FACTOR;
+#endif
+        status = search(restart);
         curr_restarts++;
     }
 
