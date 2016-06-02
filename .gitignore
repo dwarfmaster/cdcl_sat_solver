@@ -4,4 +4,7 @@
 cnf/
 *.or
 minisat/core/minisat_static
+bench/result*
+bench/minisat*
+bench/problems
 
