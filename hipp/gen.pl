@@ -10,10 +10,9 @@ my $gs = $ARGV[1];
 
 sub randbool {
     my $r = rand();
-    my $third = 1/3;
-    if($r < $third) {
+    if($r < 0.25) {
         return 0;
-    } elsif($r < 2*$third) {
+    } elsif($r < 0.5) {
         return 1;
     } else {
         return 2;
