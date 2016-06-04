@@ -1,6 +1,3 @@
-*.hi
-*.o
-*.prog
 cnf/
 *.or
 minisat/core/minisat_static
