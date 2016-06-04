@@ -4,7 +4,7 @@ trials <- c("perso_no", "vsids_no", "vsids_geom", "vsids_luby")
 idxs <- c(1,2,3,4)
 lim <- 30.0
 # TODO add pvsids_no, pvsids_geom, pvsids_luby
-rdata <- read.table("data_file", head=TRUE, sep=",")
+rdata <- read.table("data/res", head=TRUE, sep=",")
 data <- rdata[rdata$trial %in% trials,]
 data$trial <- factor(data$trial)
 

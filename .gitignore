@@ -7,4 +7,7 @@ minisat/core/minisat_static
 bench/result*
 bench/minisat*
 bench/problems
+bench/plotting/.R*
+bench/plotting/data
+bench/plotting/output
 
