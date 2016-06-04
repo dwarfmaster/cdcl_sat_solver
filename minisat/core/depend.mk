@@ -11,7 +11,8 @@
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Alloc.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Heap.h \
- /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/Options.h
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/Options.h \
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/config.h
 /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.o /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.or /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.od /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.op: \
  /home/luc/universel/annex/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.cc \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Sort.h \
@@ -41,4 +42,5 @@
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Alloc.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/Solver.h \
  /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/mtl/Heap.h \
- /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/Options.h
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/utils/Options.h \
+ /home/luc/school/prepa/mpe/tipe/cdcl-sat-solver/minisat/core/config.h

@@ -5,12 +5,13 @@
 // Disable random decision
 #undef RANDOM_DECI
 // Enable VSIDS heuristics
-#undef VSIDS
+#define VSIDS
+#define PERSO_VSIDS
 
 // Disable geom restart
-#define GEOM_RESTART
+#undef GEOM_RESTART
 // Enable luby restart
-#undef LUBY_RESTART
+#define LUBY_RESTART
 
 #endif
 
